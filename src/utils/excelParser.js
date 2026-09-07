@@ -2,19 +2,39 @@ import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
 
 /**
- * Searches for a value in a column next to a label match.
- * Matches python's `buscar_valor(df, etiqueta, cols=[3,4,5,2])`
+ * Searches for a value in a column next to a label match or list of label aliases.
+ * Resilient to different column layouts and capitalization.
  */
-export function buscarValor(grid, etiqueta, cols = [3, 4, 5, 2]) {
+export function buscarValor(grid, etiquetas, cols = [2, 3, 4, 5, 6, 1, 0]) {
+  if (!grid || !Array.isArray(grid)) return null;
+  const etiqList = Array.isArray(etiquetas) ? etiquetas : [etiquetas];
+  
   for (let r = 0; r < grid.length; r++) {
     const row = grid[r] || [];
-    const c1 = row[1]?.toString().trim() || "";
-    if (c1.toLowerCase().includes(etiqueta.toLowerCase())) {
-      for (const c of cols) {
-        if (c < row.length) {
-          const v = row[c]?.toString().trim();
-          if (v && !["nan", "none", ""].includes(v.toLowerCase())) {
-            return v;
+    
+    // Check all columns in this row to find the label
+    for (let c = 0; c < Math.min(row.length, 6); c++) {
+      const cellText = row[c]?.toString().trim().toLowerCase() || "";
+      if (!cellText) continue;
+      
+      for (const etiq of etiqList) {
+        const etiqNorm = etiq.toLowerCase().trim();
+        if (cellText === etiqNorm || cellText.startsWith(etiqNorm) || cellText.includes(etiqNorm)) {
+          // Found the label cell! First look in adjacent columns to the right
+          for (let valCol = c + 1; valCol < row.length; valCol++) {
+            const v = row[valCol]?.toString().trim();
+            if (v && !["nan", "none", "", "null", "undefined", "-", ":"].includes(v.toLowerCase())) {
+              return v;
+            }
+          }
+          // Fallback to check default columns
+          for (const valCol of cols) {
+            if (valCol !== c && valCol < row.length) {
+              const v = row[valCol]?.toString().trim();
+              if (v && !["nan", "none", "", "null", "undefined", "-", ":"].includes(v.toLowerCase())) {
+                return v;
+              }
+            }
           }
         }
       }
@@ -24,36 +44,43 @@ export function buscarValor(grid, etiqueta, cols = [3, 4, 5, 2]) {
 }
 
 /**
- * Parses the KM Range: "Desde:" and "Hasta:"
+ * Parses the KM Range: "Desde:" and "Hasta:" from any cell position.
  */
 export function parseRangoKM(grid) {
   let kmDesde = null;
   let kmHasta = null;
 
-  // First pass: look for "Desde:" and "Hasta:" cells
+  if (!grid || !Array.isArray(grid)) return { kmDesde: 5000, kmHasta: 120000 };
+
+  // First pass: look for "Desde" and "Hasta" in any cell
   for (let r = 0; r < grid.length; r++) {
     const row = grid[r] || [];
-    for (const cc of [1, 3]) {
-      if (cc >= row.length) continue;
-      const celda = row[cc]?.toString().trim() || "";
-      if (celda === "Desde:") {
-        for (const vc of [cc + 1, 4, 5]) {
-          if (vc < row.length && row[vc] !== undefined && row[vc] !== null) {
-            const cleanVal = row[vc].toString().replace(/,/g, '');
-            const parsed = parseInt(parseFloat(cleanVal), 10);
-            if (!isNaN(parsed)) {
+    for (let c = 0; c < Math.min(row.length, 6); c++) {
+      const cellText = row[c]?.toString().trim().toLowerCase() || "";
+      
+      // Look for Desde
+      if (cellText === "desde:" || cellText === "desde" || cellText.startsWith("desde")) {
+        for (let vc = c + 1; vc < Math.min(row.length, c + 5); vc++) {
+          const rawVal = row[vc];
+          if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+            const cleanVal = rawVal.toString().replace(/km/gi, '').replace(/\./g, '').replace(/,/g, '').trim();
+            const parsed = parseInt(cleanVal, 10);
+            if (!isNaN(parsed) && parsed >= 0) {
               kmDesde = parsed;
               break;
             }
           }
         }
       }
-      if (celda === "Hasta:") {
-        for (const vc of [cc + 1, 4, 5]) {
-          if (vc < row.length && row[vc] !== undefined && row[vc] !== null) {
-            const cleanVal = row[vc].toString().replace(/,/g, '');
-            const parsed = parseInt(parseFloat(cleanVal), 10);
-            if (!isNaN(parsed)) {
+
+      // Look for Hasta
+      if (cellText === "hasta:" || cellText === "hasta" || cellText.startsWith("hasta")) {
+        for (let vc = c + 1; vc < Math.min(row.length, c + 5); vc++) {
+          const rawVal = row[vc];
+          if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+            const cleanVal = rawVal.toString().replace(/km/gi, '').replace(/\./g, '').replace(/,/g, '').trim();
+            const parsed = parseInt(cleanVal, 10);
+            if (!isNaN(parsed) && parsed > 0) {
               kmHasta = parsed;
               break;
             }
@@ -63,17 +90,18 @@ export function parseRangoKM(grid) {
     }
   }
 
-  // Fallback pass: look for "incluir en la cotización"
+  // Fallback pass: look for "incluir en la cotización" or "mantenimientos"
   if (!kmDesde || !kmHasta) {
     for (let r = 0; r < grid.length; r++) {
       const row = grid[r] || [];
-      const c1 = row[1]?.toString().trim() || "";
-      if (c1.toLowerCase().includes("incluir en la cotización") || c1.toLowerCase().includes("mantenimientos que se deben")) {
-        for (const vc of [3, 4, 5]) {
-          if (vc < row.length && row[vc] !== undefined && row[vc] !== null) {
-            const cleanVal = row[vc].toString().replace(/,/g, '');
-            const parsed = parseInt(parseFloat(cleanVal), 10);
-            if (!isNaN(parsed) && parsed > 1000 && !kmDesde) {
+      const rowStr = row.map(v => (v || '').toString().toLowerCase()).join(' ');
+      if (rowStr.includes("incluir en la cotización") || rowStr.includes("mantenimientos que se deben") || rowStr.includes("mantenimientos")) {
+        for (let vc = 0; vc < row.length; vc++) {
+          const rawVal = row[vc];
+          if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+            const cleanVal = rawVal.toString().replace(/km/gi, '').replace(/\./g, '').replace(/,/g, '').trim();
+            const parsed = parseInt(cleanVal, 10);
+            if (!isNaN(parsed) && parsed >= 1000 && !kmDesde) {
               kmDesde = parsed;
               break;
             }
@@ -81,24 +109,32 @@ export function parseRangoKM(grid) {
         }
 
         // Search for "Hasta" in the next 5 rows
-        for (let j = r + 1; j < Math.min(r + 5, grid.length); j++) {
+        for (let j = r + 1; j < Math.min(r + 6, grid.length); j++) {
           const r2 = grid[j] || [];
-          const c3 = r2[3]?.toString().trim() || "";
-          if (c3.includes("Hasta") && r2[4] !== undefined && r2[4] !== null) {
-            const cleanVal = r2[4].toString().replace(/,/g, '');
-            const parsed = parseInt(parseFloat(cleanVal), 10);
-            if (!isNaN(parsed)) {
-              kmHasta = parsed;
-              break;
+          for (let c = 0; c < r2.length; c++) {
+            const ct = (r2[c] || '').toString().toLowerCase();
+            if (ct.includes("hasta")) {
+              for (let vc = c + 1; vc < r2.length; vc++) {
+                const rawVal2 = r2[vc];
+                if (rawVal2 !== undefined && rawVal2 !== null && rawVal2 !== '') {
+                  const cleanVal2 = rawVal2.toString().replace(/km/gi, '').replace(/\./g, '').replace(/,/g, '').trim();
+                  const parsed2 = parseInt(cleanVal2, 10);
+                  if (!isNaN(parsed2) && parsed2 > 0) {
+                    kmHasta = parsed2;
+                    break;
+                  }
+                }
+              }
             }
           }
+          if (kmHasta) break;
         }
         break;
       }
     }
   }
 
-  return { kmDesde, kmHasta };
+  return { kmDesde: kmDesde || 5000, kmHasta: kmHasta || 120000 };
 }
 
 /**
@@ -176,22 +212,25 @@ export async function detectarCorrectivosExcel(fileBuffer, grid) {
  */
 export function parsePlacas(grid) {
   const placas = [];
+  if (!grid || !Array.isArray(grid)) return placas;
   for (let r = 0; r < grid.length; r++) {
     const row = grid[r] || [];
-    const c1 = row[1]?.toString().trim() || "";
-    if (c1.toUpperCase() === "PLACAS") {
-      for (const vc of [3, 4, 5]) {
-        if (vc < row.length && row[vc] !== undefined && row[vc] !== null) {
-          const v = row[vc].toString().trim();
-          if (v && !["nan", "placas", ""].includes(v.toLowerCase())) {
-            placas.push(v);
-            break;
+    for (let c = 0; c < Math.min(row.length, 6); c++) {
+      const cellText = row[c]?.toString().trim().toUpperCase() || "";
+      if (cellText === "PLACAS" || cellText === "PLACA" || cellText.startsWith("PLACA")) {
+        for (let vc = c + 1; vc < row.length; vc++) {
+          if (row[vc] !== undefined && row[vc] !== null) {
+            const v = row[vc].toString().trim();
+            if (v && !["nan", "placas", "placa", "none", "", "-"].includes(v.toLowerCase())) {
+              const splitPlacas = v.split(/[,;/]+/).map(p => p.trim().toUpperCase()).filter(Boolean);
+              placas.push(...splitPlacas);
+            }
           }
         }
       }
     }
   }
-  return placas;
+  return Array.from(new Set(placas));
 }
 
 /**

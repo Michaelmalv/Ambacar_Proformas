@@ -31,6 +31,7 @@ import {
 } from './utils/excelParser';
 import { generarProformaDocx } from './utils/docxGenerator';
 import { 
+  DEFAULT_MODELOS,
   getModelosVehiculo, 
   buscarPlanPorModelo, 
   getCostosPorKm, 
@@ -47,10 +48,10 @@ export default function App() {
   const [templateFile, setTemplateFile] = useState(null);
   const [showManualTemplate, setShowManualTemplate] = useState(false);
   
-  // Supabase State
-  const [modelosDisponibles, setModelosDisponibles] = useState([]);
-  const [selectedPlanId, setSelectedPlanId] = useState("");
-  const [selectedModeloId, setSelectedModeloId] = useState("");
+  // Supabase State (Pre-populated synchronously so dropdown is never blank)
+  const [modelosDisponibles, setModelosDisponibles] = useState(DEFAULT_MODELOS);
+  const [selectedPlanId, setSelectedPlanId] = useState(DEFAULT_MODELOS[0]?.planes_mantenimiento?.[0]?.id || "w7-4x4-250k");
+  const [selectedModeloId, setSelectedModeloId] = useState(DEFAULT_MODELOS[0]?.id || "w7-4x4-250k");
   const [supabaseConnected, setSupabaseConnected] = useState(false);
   const [historialProformas, setHistorialProformas] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -68,14 +69,14 @@ export default function App() {
     contacto: "",
     telefono: "",
     correo: "",
-    modeloVehiculo: "",
+    modeloVehiculo: DEFAULT_MODELOS[0]?.nombre_completo || "WINGLE 7 DIESEL 4X4",
     cantidadVehiculos: 1,
     plazoEjecucion: "365",
     vigenciaOferta: "90 días",
     observacion: "",
     objetoContrato: "Plan de mantenimiento preventivo y correctivo de vehículos",
-    kmDesde: "",
-    kmHasta: "",
+    kmDesde: "5000",
+    kmHasta: "120000",
     incluirCorrectivos: false
   });
   
@@ -94,14 +95,11 @@ export default function App() {
   // Load Models from Supabase on mount
   useEffect(() => {
     async function loadSupabaseData() {
-      const { data, error } = await getModelosVehiculo();
+      const { data, error, source } = await getModelosVehiculo();
       if (!error && data && data.length > 0) {
         setModelosDisponibles(data);
-        setSupabaseConnected(true);
-        // Default to first model plan
-        if (data[0].planes_mantenimiento && data[0].planes_mantenimiento.length > 0) {
-          setSelectedModeloId(data[0].id);
-          setSelectedPlanId(data[0].planes_mantenimiento[0].id);
+        if (source === 'supabase') {
+          setSupabaseConnected(true);
         }
       }
     }
@@ -163,72 +161,76 @@ export default function App() {
         const worksheet = workbook.Sheets[sheetName];
         const grid = importXLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
         
-        // Extract fields
-        const razonSocialVal = buscarValor(grid, "Razón Social") || "";
-        const rucVal = buscarValor(grid, "RUC") || "";
-        const direccionVal = buscarValor(grid, "Dirección") || "";
-        const contactoVal = buscarValor(grid, "Nombre del Contacto") || "";
-        const telefonoVal = buscarValor(grid, "Teléfono") || "";
-        const correoVal = buscarValor(grid, "Correo electrónico") || "";
-        const plazoVal = buscarValor(grid, "Plazo de ejecución") || "365";
-        const vigenciaVal = buscarValor(grid, "Vigencia de la oferta") || "90 días";
-        const modeloVal = buscarValor(grid, "Modelo de vehículo") || "";
-        const cantidadVal = buscarValor(grid, "Cantidad de vehículos") || "1";
-        const observacionVal = buscarValor(grid, "Observación") || "";
-        const objetoVal = buscarValor(grid, "OBJETO DEL CONTRATO") || "Plan de mantenimiento preventivo y correctivo de vehículos";
+        // Extract fields with multi-label aliases
+        const razonSocialVal = buscarValor(grid, ["Razón Social", "Razon Social", "Cliente", "Nombre del Cliente", "Empresa"]) || "";
+        const rucVal = buscarValor(grid, ["RUC", "R.U.C.", "C.I.", "Identificación", "Identificacion"]) || "";
+        const direccionVal = buscarValor(grid, ["Dirección", "Direccion", "Ubicación", "Ubicacion", "Domicilio"]) || "";
+        const contactoVal = buscarValor(grid, ["Nombre del Contacto", "Contacto", "Atención", "Atencion", "Solicitante", "Persona de Contacto"]) || "";
+        const telefonoVal = buscarValor(grid, ["Teléfono", "Telefono", "Celular", "Telf", "Movil"]) || "";
+        const correoVal = buscarValor(grid, ["Correo electrónico", "Correo electronico", "Correo", "Email", "E-mail"]) || "";
+        const plazoVal = buscarValor(grid, ["Plazo de ejecución", "Plazo de ejecucion", "Plazo"]) || "365";
+        const vigenciaVal = buscarValor(grid, ["Vigencia de la oferta", "Vigencia"]) || "90 días";
+        const modeloVal = buscarValor(grid, ["Modelo de vehículo", "Modelo de vehiculo", "Modelo del vehículo", "Modelo del vehiculo", "Modelo", "Vehículo", "Vehiculo", "Tipo de Vehículo", "Tipo de vehiculo"]) || "";
+        const cantidadVal = buscarValor(grid, ["Cantidad de vehículos", "Cantidad de vehiculos", "Cantidad", "N° vehículos", "N° vehiculos", "No. Vehículos"]) || "1";
+        const observacionVal = buscarValor(grid, ["Observación", "Observacion", "Notas", "Observaciones"]) || "";
+        const objetoVal = buscarValor(grid, ["OBJETO DEL CONTRATO", "Objeto del contrato", "Objeto de la contratación", "Objeto"]) || "Plan de mantenimiento preventivo y correctivo de vehículos";
         
         const { kmDesde: kd, kmHasta: kh } = parseRangoKM(grid);
         const placasVal = parsePlacas(grid);
         
         // Detect checkboxes using zip vml
         let inclCorr = false;
-        const zipResult = await detectarCorrectivosExcel(data, grid);
-        if (zipResult) {
-          inclCorr = zipResult.siChecked && !zipResult.noChecked;
-        } else {
-          // Fallback text check
-          for (let r = 0; r < grid.length; r++) {
-            const row = grid[r] || [];
-            const c1 = row[1]?.toString().trim() || "";
-            if (c1.toLowerCase().includes("correctivo") && c1.toLowerCase().includes("incluir")) {
-              for (const vc of [3, 4, 5]) {
-                if (vc < row.length) {
-                  const v = row[vc]?.toString().trim().toUpperCase();
-                  if (v === "SI" || v === "SÍ") inclCorr = true;
+        try {
+          const zipResult = await detectarCorrectivosExcel(data, grid);
+          if (zipResult) {
+            inclCorr = zipResult.siChecked && !zipResult.noChecked;
+          } else {
+            // Fallback text check
+            for (let r = 0; r < grid.length; r++) {
+              const row = grid[r] || [];
+              for (let c = 0; c < row.length; c++) {
+                const cellText = (row[c] || '').toString().toLowerCase();
+                if (cellText.includes("correctivo") && cellText.includes("incluir")) {
+                  for (let vc = c + 1; vc < row.length; vc++) {
+                    const v = (row[vc] || '').toString().trim().toUpperCase();
+                    if (v === "SI" || v === "SÍ") inclCorr = true;
+                  }
                 }
               }
             }
           }
+        } catch (err) {
+          console.warn("Checkbox detection error:", err);
+        }
+
+        // Match with Supabase / Fallback Model & Plan
+        const { plan, modelo } = await buscarPlanPorModelo(modeloVal);
+        if (plan && modelo) {
+          setSelectedModeloId(modelo.id);
+          setSelectedPlanId(plan.id);
         }
 
         setForm(prev => ({
           ...prev,
-          razonSocial: razonSocialVal,
-          ruc: rucVal,
-          direccion: direccionVal,
-          contacto: contactoVal,
-          telefono: telefonoVal,
-          correo: correoVal,
-          plazoEjecucion: plazoVal,
-          vigenciaOferta: vigenciaVal,
-          modeloVehiculo: modeloVal,
-          cantidadVehiculos: cantidadVal,
-          observacion: observacionVal,
-          objetoContrato: objetoVal,
-          kmDesde: kd || prev.kmDesde || "5000",
-          kmHasta: kh || prev.kmHasta || "120000",
+          razonSocial: razonSocialVal || prev.razonSocial,
+          ruc: rucVal || prev.ruc,
+          direccion: direccionVal || prev.direccion,
+          contacto: contactoVal || prev.contacto,
+          telefono: telefonoVal || prev.telefono,
+          correo: correoVal || prev.correo,
+          plazoEjecucion: plazoVal || prev.plazoEjecucion,
+          vigenciaOferta: vigenciaVal || prev.vigenciaOferta,
+          modeloVehiculo: modeloVal || modelo?.nombre_completo || prev.modeloVehiculo,
+          cantidadVehiculos: cantidadVal || prev.cantidadVehiculos,
+          observacion: observacionVal || prev.observacion,
+          objetoContrato: objetoVal || prev.objetoContrato,
+          kmDesde: kd ? kd.toString() : (prev.kmDesde || "5000"),
+          kmHasta: kh ? kh.toString() : (prev.kmHasta || "120000"),
           incluirCorrectivos: inclCorr
         }));
         
-        setPlacas(placasVal);
-
-        // Match with Supabase Model & Plan
-        if (modeloVal) {
-          const { plan, modelo } = await buscarPlanPorModelo(modeloVal);
-          if (plan && modelo) {
-            setSelectedModeloId(modelo.id);
-            setSelectedPlanId(plan.id);
-          }
+        if (placasVal && placasVal.length > 0) {
+          setPlacas(placasVal);
         }
       } catch (err) {
         console.error("Error reading quotation file:", err);
