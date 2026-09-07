@@ -571,7 +571,7 @@ export default function App() {
           <img src="/ambacar_logo.png" alt="Ambacar" className="brand-logo-img" />
           <div className="brand-divider"></div>
           <div>
-            <h1 className="brand-title">Generador de Proformas <span>AMBACAR</span></h1>
+            <h1 className="brand-title"><span>AMBACAR</span> PROFORMAS</h1>
             <p className="brand-subtitle">Cotizaciones Corporativas conectadas con Supabase</p>
           </div>
         </div>
@@ -1268,7 +1268,7 @@ export default function App() {
       
       {/* Footer credits */}
       <footer className="footer-credits">
-        Generador de Proformas Ambacar &copy; {new Date().getFullYear()}. Base de datos en Supabase PostgreSQL.
+        AMBACAR PROFORMAS &copy; {new Date().getFullYear()}. Base de datos en Supabase PostgreSQL.
       </footer>
     </div>
   );
