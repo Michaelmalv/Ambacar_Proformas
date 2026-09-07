@@ -332,6 +332,13 @@ select.form-input {
   background-color: var(--primary-light);
 }
 
+.upload-zone.dragging {
+  border-color: var(--primary) !important;
+  background-color: #ffe4e6 !important;
+  box-shadow: 0 0 0 4px var(--primary-glow) !important;
+  transform: scale(1.02);
+}
+
 .upload-zone.active {
   border-color: var(--success);
   background-color: var(--success-bg);

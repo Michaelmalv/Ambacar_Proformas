@@ -48,9 +48,13 @@ export default function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState('generator'); // 'generator' | 'history'
 
-  // Files State
+  // Files State & Drag States
   const [cotizacionFile, setCotizacionFile] = useState(null);
+  const [isDraggingCot, setIsDraggingCot] = useState(false);
   const [templateFile, setTemplateFile] = useState(null);
+  const [isDraggingTemplate, setIsDraggingTemplate] = useState(false);
+  const [isDraggingHeader, setIsDraggingHeader] = useState(false);
+  const [isDraggingFooter, setIsDraggingFooter] = useState(false);
   const [showManualTemplate, setShowManualTemplate] = useState(false);
   
   // Supabase State (Pre-populated synchronously so dropdown is never blank)
@@ -164,9 +168,22 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Parse Quotation File (DATOS_PARA_COTIZACION.xlsx)
-  const handleCotizacionChange = (e) => {
-    const file = e.target.files[0];
+  // Global window drag & drop prevention to ensure files are never downloaded/opened by the browser
+  useEffect(() => {
+    const preventDefaults = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('dragover', preventDefaults, false);
+    window.addEventListener('drop', preventDefaults, false);
+    return () => {
+      window.removeEventListener('dragover', preventDefaults);
+      window.removeEventListener('drop', preventDefaults);
+    };
+  }, []);
+
+  // Process Quotation File (DATOS_PARA_COTIZACION.xlsx)
+  const processCotizacionFile = (file) => {
     if (!file) return;
     setCotizacionFile(file);
 
@@ -297,9 +314,14 @@ export default function App() {
     reader.readAsArrayBuffer(file);
   };
 
-  // Parse Maintenance Plan Template File (Offline Manual Fallback)
-  const handleTemplateChange = (e) => {
-    const file = e.target.files[0];
+  const handleCotizacionChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      processCotizacionFile(e.target.files[0]);
+    }
+  };
+
+  // Process Maintenance Plan Template File (Offline Manual Fallback)
+  const processTemplateFile = (file) => {
     if (!file) return;
     setTemplateFile(file);
 
@@ -334,6 +356,12 @@ export default function App() {
       }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  const handleTemplateChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      processTemplateFile(e.target.files[0]);
+    }
   };
 
   // Handle Model Selection change in dropdown
@@ -621,7 +649,21 @@ export default function App() {
               <div className="form-group" style={{ marginBottom: '1rem' }}>
                 <label className="form-label">Archivo de Cotización (.xlsx)</label>
                 {!cotizacionFile ? (
-                  <div className="upload-zone" onClick={() => document.getElementById('cot-input').click()}>
+                  <div 
+                    className={`upload-zone ${isDraggingCot ? 'dragging' : ''}`} 
+                    onClick={() => document.getElementById('cot-input').click()}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingCot(true); }}
+                    onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingCot(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingCot(false); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDraggingCot(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        processCotizacionFile(e.dataTransfer.files[0]);
+                      }
+                    }}
+                  >
                     <UploadCloud className="upload-icon" />
                     <p className="upload-text">Arrastra o selecciona el archivo</p>
                     <p className="upload-subtext">DATOS_PARA_COTIZACION.xlsx</p>
@@ -682,7 +724,22 @@ export default function App() {
                 {showManualTemplate && (
                   <div style={{ marginTop: '0.75rem' }}>
                     {!templateFile ? (
-                      <div className="upload-zone" style={{ padding: '1rem' }} onClick={() => document.getElementById('template-input').click()}>
+                      <div 
+                        className={`upload-zone ${isDraggingTemplate ? 'dragging' : ''}`} 
+                        style={{ padding: '1rem' }} 
+                        onClick={() => document.getElementById('template-input').click()}
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingTemplate(true); }}
+                        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingTemplate(true); }}
+                        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingTemplate(false); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDraggingTemplate(false);
+                          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            processTemplateFile(e.dataTransfer.files[0]);
+                          }
+                        }}
+                      >
                         <UploadCloud size={20} style={{ margin: '0 auto 0.25rem' }} />
                         <span className="upload-subtext">Subir Plantilla Excel Manual</span>
                         <input 
@@ -732,7 +789,22 @@ export default function App() {
                       </button>
                     </div>
                   ) : (
-                    <div className="upload-zone" style={{ padding: '1rem' }} onClick={() => document.getElementById('header-img-input').click()}>
+                    <div 
+                      className={`upload-zone ${isDraggingHeader ? 'dragging' : ''}`} 
+                      style={{ padding: '1rem' }} 
+                      onClick={() => document.getElementById('header-img-input').click()}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingHeader(true); }}
+                      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingHeader(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingHeader(false); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDraggingHeader(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          handleImageUpload(e.dataTransfer.files[0], 'header');
+                        }
+                      }}
+                    >
                       <UploadCloud size={20} style={{ margin: '0 auto 0.25rem' }} />
                       <span className="upload-subtext">Subir Header</span>
                       <input 
@@ -761,7 +833,22 @@ export default function App() {
                       </button>
                     </div>
                   ) : (
-                    <div className="upload-zone" style={{ padding: '1rem' }} onClick={() => document.getElementById('footer-img-input').click()}>
+                    <div 
+                      className={`upload-zone ${isDraggingFooter ? 'dragging' : ''}`} 
+                      style={{ padding: '1rem' }} 
+                      onClick={() => document.getElementById('footer-img-input').click()}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingFooter(true); }}
+                      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingFooter(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingFooter(false); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDraggingFooter(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          handleImageUpload(e.dataTransfer.files[0], 'footer');
+                        }
+                      }}
+                    >
                       <UploadCloud size={20} style={{ margin: '0 auto 0.25rem' }} />
                       <span className="upload-subtext">Subir Footer</span>
                       <input 
