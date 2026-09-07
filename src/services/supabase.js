@@ -120,6 +120,10 @@ export async function buscarPlanPorModelo(modeloTexto = "", observacionTexto = "
   return { plan: DEFAULT_MODELOS[0].planes_mantenimiento[0], modelo: DEFAULT_MODELOS[0] };
 }
 
+function roundMoney(val) {
+  return Math.round((Number(val || 0) + 0.00001) * 100) / 100;
+}
+
 /**
  * Calculates maintenance costs for a given plan and KM range or individual vehicle maintenance list.
  */
@@ -128,12 +132,22 @@ export async function getCostosPorKm(planId, kmDesde, kmHasta, cantidadVehiculos
   const kHasta = parseInt(kmHasta, 10) || 250000;
   const nVehiculos = parseInt(cantidadVehiculos, 10) || 1;
 
-  const localPlan = PLANES_MANTENIMIENTO_DATA.find(p => p.id === planId || p.codigo_plan === planId);
+  let localPlan = PLANES_MANTENIMIENTO_DATA.find(p => p.id === planId || p.codigo_plan === planId);
+  
+  // If not found directly, search through DEFAULT_MODELOS and Supabase models
   if (!localPlan) {
-    return {
-      error: true,
-      message: `No se encontró el plan de mantenimiento seleccionado.`
-    };
+    const { data: modelos } = await getModelosVehiculo();
+    const matchedMod = modelos?.find(m => m.id === planId || m.planes_mantenimiento?.some(pm => pm.id === planId || pm.codigo_plan === planId));
+    if (matchedMod) {
+      localPlan = PLANES_MANTENIMIENTO_DATA.find(p => 
+        p.nombre_completo?.toUpperCase() === matchedMod.nombre_completo?.toUpperCase() ||
+        p.modelo?.toUpperCase() === matchedMod.modelo?.toUpperCase()
+      );
+    }
+  }
+
+  if (!localPlan) {
+    localPlan = PLANES_MANTENIMIENTO_DATA[0];
   }
 
   // 1. If specific individual vehicle maintenance list is given (e.g. from Observación)
@@ -165,10 +179,10 @@ export async function getCostosPorKm(planId, kmDesde, kmHasta, cantidadVehiculos
       };
     });
 
-    const totalPreventivo = Math.round((totalRepuestos + totalLubricantes + totalMo) * 100) / 100;
-    totalRepuestos = Math.round(totalRepuestos * 100) / 100;
-    totalLubricantes = Math.round(totalLubricantes * 100) / 100;
-    totalMo = Math.round(totalMo * 100) / 100;
+    const totalPreventivo = roundMoney(totalRepuestos + totalLubricantes + totalMo);
+    totalRepuestos = roundMoney(totalRepuestos);
+    totalLubricantes = roundMoney(totalLubricantes);
+    totalMo = roundMoney(totalMo);
 
     return {
       error: false,
@@ -217,7 +231,10 @@ export async function getCostosPorKm(planId, kmDesde, kmHasta, cantidadVehiculos
     return { km, repuestos: rep, lubricantes: lub, mano_obra: mo, total: tot };
   });
 
-  const totalPreventivo1v = Math.round((totalRepuestos1v + totalLubricantes1v + totalMo1v) * 100) / 100;
+  totalRepuestos1v = roundMoney(totalRepuestos1v);
+  totalLubricantes1v = roundMoney(totalLubricantes1v);
+  totalMo1v = roundMoney(totalMo1v);
+  const totalPreventivo1v = roundMoney(totalRepuestos1v + totalLubricantes1v + totalMo1v);
 
   return {
     error: false,
@@ -228,10 +245,10 @@ export async function getCostosPorKm(planId, kmDesde, kmHasta, cantidadVehiculos
     totalMo1v,
     totalPreventivo1v,
     nVehiculos,
-    totalRepuestos: Math.round(totalRepuestos1v * nVehiculos * 100) / 100,
-    totalLubricantes: Math.round(totalLubricantes1v * nVehiculos * 100) / 100,
-    totalMo: Math.round(totalMo1v * nVehiculos * 100) / 100,
-    totalPreventivo: Math.round(totalPreventivo1v * nVehiculos * 100) / 100
+    totalRepuestos: roundMoney(totalRepuestos1v * nVehiculos),
+    totalLubricantes: roundMoney(totalLubricantes1v * nVehiculos),
+    totalMo: roundMoney(totalMo1v * nVehiculos),
+    totalPreventivo: roundMoney(totalPreventivo1v * nVehiculos)
   };
 }
 

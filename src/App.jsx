@@ -31,7 +31,8 @@ import {
   parsePlacas, 
   parseMantenimientosObservacion,
   detectarModeloEnGrid,
-  calcularPlanMantenimiento 
+  calcularPlanMantenimiento,
+  roundMoney
 } from './utils/excelParser';
 import { generarProformaDocx } from './utils/docxGenerator';
 import { 
@@ -110,6 +111,14 @@ export default function App() {
         setModelosDisponibles(data);
         if (source === 'supabase') {
           setSupabaseConnected(true);
+          setSelectedModeloId(prev => {
+            const match = data.find(m => m.id === prev || m.nombre_completo === DEFAULT_MODELOS[0]?.nombre_completo);
+            return match ? match.id : data[0].id;
+          });
+          setSelectedPlanId(prev => {
+            const match = data.find(m => m.id === selectedModeloId || m.nombre_completo === DEFAULT_MODELOS[0]?.nombre_completo);
+            return (match && match.planes_mantenimiento?.[0]?.id) || data[0]?.planes_mantenimiento?.[0]?.id || prev;
+          });
         }
       }
     }
@@ -237,8 +246,17 @@ export default function App() {
         // Match with Supabase / Fallback Model & Plan (considering model text, grid scan, and observation)
         const { plan, modelo } = await buscarPlanPorModelo(finalModeloVal, observacionVal);
         if (plan && modelo) {
-          setSelectedModeloId(modelo.id);
-          setSelectedPlanId(plan.id);
+          const activeModel = modelosDisponibles.find(m => 
+            m.id === modelo.id || 
+            m.nombre_completo?.toUpperCase() === modelo.nombre_completo?.toUpperCase() ||
+            m.modelo?.toUpperCase() === modelo.modelo?.toUpperCase()
+          );
+
+          const finalModId = activeModel ? activeModel.id : modelo.id;
+          const finalPlanId = (activeModel && activeModel.planes_mantenimiento?.[0]?.id) || plan.id;
+
+          setSelectedModeloId(finalModId);
+          setSelectedPlanId(finalPlanId);
         }
 
         let parsedCount = parseInt(cantidadVal, 10);
@@ -488,12 +506,12 @@ export default function App() {
     if (!calcResult) return;
     setIsGenerating(true);
     
-    const totalRepuestos = calcResult.totalRepuestos;
-    const totalLubricantes = calcResult.totalLubricantes;
-    const totalManoObra = calcResult.totalMo;
-    const totalPreventivo = calcResult.totalPreventivo;
-    const totalCorrectivo = form.incluirCorrectivos ? Math.round(totalPreventivo * 0.3 * 100) / 100 : 0;
-    const granTotal = totalPreventivo + totalCorrectivo;
+    const totalRepuestos = roundMoney(calcResult.totalRepuestos);
+    const totalLubricantes = roundMoney(calcResult.totalLubricantes);
+    const totalManoObra = roundMoney(calcResult.totalMo);
+    const totalPreventivo = roundMoney(calcResult.totalPreventivo);
+    const totalCorrectivo = form.incluirCorrectivos ? roundMoney(totalPreventivo * 0.3) : 0;
+    const granTotal = roundMoney(totalPreventivo + totalCorrectivo);
 
     const today = new Date();
     const mmStr = String(today.getMonth() + 1).padStart(2, '0');
@@ -541,9 +559,9 @@ export default function App() {
     }).format(val || 0);
   };
 
-  const previewPrev = calcResult ? calcResult.totalPreventivo : 0;
-  const previewCorr = form.incluirCorrectivos ? Math.round(previewPrev * 0.3 * 100) / 100 : 0;
-  const previewTotal = previewPrev + previewCorr;
+  const previewPrev = calcResult ? roundMoney(calcResult.totalPreventivo) : 0;
+  const previewCorr = form.incluirCorrectivos ? roundMoney(previewPrev * 0.3) : 0;
+  const previewTotal = roundMoney(previewPrev + previewCorr);
 
   return (
     <div className="app-container">

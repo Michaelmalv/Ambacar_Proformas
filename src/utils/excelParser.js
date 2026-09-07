@@ -5,24 +5,45 @@ import JSZip from 'jszip';
  * Searches for a value in a column next to a label match or list of label aliases.
  * Resilient to different column layouts and capitalization.
  */
+/**
+ * Helper to perform exact 2-decimal financial rounding avoiding IEEE-754 mantissa errors.
+ */
+export function roundMoney(val) {
+  return Math.round((Number(val || 0) + 0.00001) * 100) / 100;
+}
+
+/**
+ * Searches for a value in a column next to a label match or list of label aliases.
+ * Resilient to different column layouts, accents, colons, and capitalization.
+ */
 export function buscarValor(grid, etiquetas, cols = [2, 3, 4, 5, 6, 1, 0]) {
   if (!grid || !Array.isArray(grid)) return null;
   const etiqList = Array.isArray(etiquetas) ? etiquetas : [etiquetas];
   
+  const normStr = (s) => (s || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[:_.,\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
   for (let r = 0; r < grid.length; r++) {
     const row = grid[r] || [];
     
     // Check all columns in this row to find the label
-    for (let c = 0; c < Math.min(row.length, 6); c++) {
-      const cellText = row[c]?.toString().trim().toLowerCase() || "";
+    for (let c = 0; c < row.length; c++) {
+      const cellText = normStr(row[c]);
       if (!cellText) continue;
       
       for (const etiq of etiqList) {
-        const etiqNorm = etiq.toLowerCase().trim();
-        if (cellText === etiqNorm || cellText.startsWith(etiqNorm) || cellText.includes(etiqNorm)) {
-          // Found the label cell! First look in adjacent columns to the right
+        const etiqNorm = normStr(etiq);
+        // Match exact label or clean prefix/suffix
+        if (cellText === etiqNorm || cellText.startsWith(etiqNorm + ' ') || cellText.endsWith(' ' + etiqNorm)) {
+          // Found the label cell! Look in adjacent columns to the right
           for (let valCol = c + 1; valCol < row.length; valCol++) {
-            const v = row[valCol]?.toString().trim();
+            const v = (row[valCol] !== undefined && row[valCol] !== null) ? row[valCol].toString().trim() : '';
             if (v && !["nan", "none", "", "null", "undefined", "-", ":"].includes(v.toLowerCase())) {
               return v;
             }
@@ -30,7 +51,7 @@ export function buscarValor(grid, etiquetas, cols = [2, 3, 4, 5, 6, 1, 0]) {
           // Fallback to check default columns
           for (const valCol of cols) {
             if (valCol !== c && valCol < row.length) {
-              const v = row[valCol]?.toString().trim();
+              const v = (row[valCol] !== undefined && row[valCol] !== null) ? row[valCol].toString().trim() : '';
               if (v && !["nan", "none", "", "null", "undefined", "-", ":"].includes(v.toLowerCase())) {
                 return v;
               }
@@ -465,10 +486,10 @@ export function calcularPlanMantenimiento(planGrid, kmDesde, kmHasta, cantidadVe
   });
   
   const nVehiculos = parseInt(cantidadVehiculos, 10) || 1;
-  const totalRepuestos = totalRepuestos1v * nVehiculos;
-  const totalLubricantes = totalLubricantes1v * nVehiculos;
-  const totalMo = totalMo1v * nVehiculos;
-  const totalPreventivo = totalPreventivo1v * nVehiculos;
+  const totalRepuestos = roundMoney(totalRepuestos1v * nVehiculos);
+  const totalLubricantes = roundMoney(totalLubricantes1v * nVehiculos);
+  const totalMo = roundMoney(totalMo1v * nVehiculos);
+  const totalPreventivo = roundMoney(totalPreventivo1v * nVehiculos);
   
   return {
     error: false,
