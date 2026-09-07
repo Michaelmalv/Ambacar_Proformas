@@ -416,6 +416,12 @@ export async function generarProformaDocx(data) {
       
       const colWidthsCons = [cm(1), cm(4), cm(8), cm(4)];
       
+      const cleanModelTitle = (hojaElegida || modeloVehiculo || "POER 4X2")
+        .toUpperCase()
+        .replace(/PLAN DE MANTENIMIENTO/g, '')
+        .replace(/GWM /g, '')
+        .trim();
+
       const headerRow = new TableRow({
         children: [
           cell("", {
@@ -427,7 +433,7 @@ export async function generarProformaDocx(data) {
                 spacing: { before: pt(2), after: pt(0) },
                 children: [
                   new TextRun({
-                    text: `COSTOS MANTENIMIENTO ${hojaElegida.toUpperCase()}`,
+                    text: `COSTOS MANTENIMIENTO ${cleanModelTitle}`,
                     bold: true,
                     size: 18,
                     color: "FFFFFF",

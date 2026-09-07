@@ -234,6 +234,87 @@ export function parsePlacas(grid) {
 }
 
 /**
+ * Parses individual vehicle maintenances from Observation or free-form text.
+ * Handles patterns like:
+ * "HEI-1859= MANTTO DE 35.000 KM"
+ * "HEI-1845= MANTTO DE 30.000 KM"
+ * "HEI-1862= MANTTO DE 35.000 KM"
+ * "ABC-1234: 50.000 KM"
+ * "10000 km, 20000 km"
+ */
+export function parseMantenimientosObservacion(obsText) {
+  if (!obsText || typeof obsText !== 'string') return [];
+  const lines = obsText.split(/[\r\n]+/);
+  const items = [];
+
+  for (const line of lines) {
+    const lineClean = line.trim();
+    if (!lineClean) continue;
+
+    // 1. Extract plate if present (e.g. HEI-1859, PBA-1234, etc.)
+    const plateMatch = /([A-Za-z]{3}-?\d{3,4})/i.exec(lineClean);
+    const plate = plateMatch ? plateMatch[1].toUpperCase() : null;
+
+    // 2. Strip plate from text to avoid numeric plate digits being mistaken for KM
+    let textWithoutPlate = lineClean;
+    if (plate) {
+      textWithoutPlate = textWithoutPlate.replace(new RegExp(plate, 'i'), '');
+    }
+
+    // 3. Match KM
+    let kmVal = null;
+
+    // Pattern A: number followed by KM (e.g. 35.000 KM, 35000km)
+    const kmPatternA = /(\d+(?:[\.,]\d+)*)\s*KM/i.exec(textWithoutPlate);
+    if (kmPatternA) {
+      const raw = kmPatternA[1].replace(/\./g, '').replace(/,/g, '');
+      const num = parseInt(raw, 10);
+      if (!isNaN(num) && num >= 5000 && num <= 300000) {
+        kmVal = num;
+      }
+    }
+
+    // Pattern B: number after MANTTO, MANTENIMIENTO, =, or :
+    if (!kmVal) {
+      const kmPatternB = /(?:MANTTO|MANTTO\.|MANTENIMIENTO|=|:)\s*(?:DE\s*)?(\d+(?:[\.,]\d+)*)/i.exec(textWithoutPlate);
+      if (kmPatternB) {
+        const raw = kmPatternB[1].replace(/\./g, '').replace(/,/g, '');
+        const num = parseInt(raw, 10);
+        if (!isNaN(num) && num >= 5000 && num <= 300000) {
+          kmVal = num;
+        }
+      }
+    }
+
+    // Pattern C: any 4 to 6 digit number >= 5000 and <= 300000
+    if (!kmVal) {
+      const allNumbers = textWithoutPlate.match(/\b\d[\d\.,]*\b/g);
+      if (allNumbers) {
+        for (const n of allNumbers) {
+          const raw = n.replace(/\./g, '').replace(/,/g, '');
+          const num = parseInt(raw, 10);
+          if (!isNaN(num) && num >= 5000 && num <= 300000) {
+            kmVal = num;
+            break;
+          }
+        }
+      }
+    }
+
+    if (kmVal) {
+      items.push({
+        id: `item-${items.length + 1}`,
+        placa: plate || `Vehículo ${items.length + 1}`,
+        km: kmVal,
+        raw: lineClean
+      });
+    }
+  }
+
+  return items;
+}
+
+/**
  * Helper to convert text (like "10.000 KM") into a numeric integer.
  */
 export function kmAInt(s) {

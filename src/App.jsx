@@ -20,6 +20,8 @@ import {
   History,
   Car,
   Layers,
+  FileText,
+  Sliders,
   X
 } from 'lucide-react';
 import { 
@@ -27,6 +29,7 @@ import {
   parseRangoKM, 
   detectarCorrectivosExcel, 
   parsePlacas, 
+  parseMantenimientosObservacion,
   calcularPlanMantenimiento 
 } from './utils/excelParser';
 import { generarProformaDocx } from './utils/docxGenerator';
@@ -55,6 +58,12 @@ export default function App() {
   const [supabaseConnected, setSupabaseConnected] = useState(false);
   const [historialProformas, setHistorialProformas] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Maintenance Calculation Mode State: 'individual' (per vehicle from observation) vs 'rango' (global range)
+  const [modoCalculo, setModoCalculo] = useState('auto'); // 'auto' | 'individual' | 'rango'
+  const [mantenimientosEspecificos, setMantenimientosEspecificos] = useState([]);
+  const [newVehiculoPlaca, setNewVehiculoPlaca] = useState("");
+  const [newVehiculoKm, setNewVehiculoKm] = useState("35000");
 
   // Manual Template Workbooks & sheets state
   const [templateWorkbook, setTemplateWorkbook] = useState(null);
@@ -203,12 +212,24 @@ export default function App() {
           console.warn("Checkbox detection error:", err);
         }
 
-        // Match with Supabase / Fallback Model & Plan
-        const { plan, modelo } = await buscarPlanPorModelo(modeloVal);
+        // Parse individual vehicle maintenances from observation
+        const parsedMant = parseMantenimientosObservacion(observacionVal);
+        if (parsedMant && parsedMant.length > 0) {
+          setMantenimientosEspecificos(parsedMant);
+          setModoCalculo('individual');
+        } else {
+          setMantenimientosEspecificos([]);
+          setModoCalculo('rango');
+        }
+
+        // Match with Supabase / Fallback Model & Plan (considering both modeloVal and observacionVal)
+        const { plan, modelo } = await buscarPlanPorModelo(modeloVal, observacionVal);
         if (plan && modelo) {
           setSelectedModeloId(modelo.id);
           setSelectedPlanId(plan.id);
         }
+
+        const effectiveCantidad = (parsedMant && parsedMant.length > 0) ? parsedMant.length : (parseInt(cantidadVal, 10) || 1);
 
         setForm(prev => ({
           ...prev,
@@ -221,7 +242,7 @@ export default function App() {
           plazoEjecucion: plazoVal || prev.plazoEjecucion,
           vigenciaOferta: vigenciaVal || prev.vigenciaOferta,
           modeloVehiculo: modeloVal || modelo?.nombre_completo || prev.modeloVehiculo,
-          cantidadVehiculos: cantidadVal || prev.cantidadVehiculos,
+          cantidadVehiculos: effectiveCantidad,
           observacion: observacionVal || prev.observacion,
           objetoContrato: objetoVal || prev.objetoContrato,
           kmDesde: kd ? kd.toString() : (prev.kmDesde || "5000"),
@@ -229,7 +250,9 @@ export default function App() {
           incluirCorrectivos: inclCorr
         }));
         
-        if (placasVal && placasVal.length > 0) {
+        if (parsedMant && parsedMant.length > 0) {
+          setPlacas(parsedMant.map(m => m.placa));
+        } else if (placasVal && placasVal.length > 0) {
           setPlacas(placasVal);
         }
       } catch (err) {
@@ -292,27 +315,81 @@ export default function App() {
     }
   };
 
-  // Recalculate cost when range, vehicles, plan, or manual sheet changes
+  // Handle Observation Text Changes (allows live re-parsing of specific maintenances)
+  const handleObservacionChange = (e) => {
+    const newObs = e.target.value;
+    setForm(prev => ({ ...prev, observacion: newObs }));
+    const parsed = parseMantenimientosObservacion(newObs);
+    if (parsed.length > 0) {
+      setMantenimientosEspecificos(parsed);
+      setForm(prev => ({ ...prev, cantidadVehiculos: parsed.length }));
+      setPlacas(parsed.map(p => p.placa));
+    }
+  };
+
+  // Add a vehicle to individual maintenance list
+  const handleAddVehiculoMant = (e) => {
+    e.preventDefault();
+    const kmNum = parseInt(newVehiculoKm, 10);
+    if (isNaN(kmNum) || kmNum < 5000) return;
+    
+    const placaName = newVehiculoPlaca.trim().toUpperCase() || `Vehículo ${mantenimientosEspecificos.length + 1}`;
+    const newItem = {
+      id: `item-${Date.now()}`,
+      placa: placaName,
+      km: kmNum,
+      raw: `${placaName} = MANTTO DE ${kmNum.toLocaleString()} KM`
+    };
+
+    const updated = [...mantenimientosEspecificos, newItem];
+    setMantenimientosEspecificos(updated);
+    setForm(prev => ({ ...prev, cantidadVehiculos: updated.length }));
+    setPlacas(updated.map(p => p.placa));
+    setNewVehiculoPlaca("");
+  };
+
+  // Remove a vehicle from individual maintenance list
+  const handleRemoveVehiculoMant = (idx) => {
+    const updated = mantenimientosEspecificos.filter((_, i) => i !== idx);
+    setMantenimientosEspecificos(updated);
+    setForm(prev => ({ ...prev, cantidadVehiculos: Math.max(1, updated.length) }));
+    setPlacas(updated.map(p => p.placa));
+  };
+
+  // Recalculate cost when range, vehicles, plan, or mode changes
   useEffect(() => {
     const kDesde = parseInt(form.kmDesde, 10);
     const kHasta = parseInt(form.kmHasta, 10);
     const nVehic = parseInt(form.cantidadVehiculos, 10) || 1;
 
-    if (isNaN(kDesde) || isNaN(kHasta) || kDesde <= 0 || kHasta <= 0) {
-      return;
-    }
+    const isIndividualMode = (modoCalculo === 'individual' || (modoCalculo === 'auto' && mantenimientosEspecificos.length > 0)) && mantenimientosEspecificos.length > 0;
 
-    // 1. If using Supabase Plan (Default Mode)
+    // 1. If using Supabase / Bundled Plan (Default Mode)
     if (selectedPlanId && !templateWorkbook) {
-      getCostosPorKm(selectedPlanId, kDesde, kHasta, nVehic).then(res => {
-        if (res.error) {
-          setCalcResult(null);
-          setCalcError(res.message || "Error al calcular desde Supabase");
-        } else {
-          setCalcResult(res);
-          setCalcError(null);
+      if (isIndividualMode) {
+        getCostosPorKm(selectedPlanId, null, null, mantenimientosEspecificos.length, mantenimientosEspecificos).then(res => {
+          if (res.error) {
+            setCalcResult(null);
+            setCalcError(res.message || "Error al calcular desde base de datos");
+          } else {
+            setCalcResult(res);
+            setCalcError(null);
+          }
+        });
+      } else {
+        if (isNaN(kDesde) || isNaN(kHasta) || kDesde <= 0 || kHasta <= 0) {
+          return;
         }
-      });
+        getCostosPorKm(selectedPlanId, kDesde, kHasta, nVehic, null).then(res => {
+          if (res.error) {
+            setCalcResult(null);
+            setCalcError(res.message || "Error al calcular desde base de datos");
+          } else {
+            setCalcResult(res);
+            setCalcError(null);
+          }
+        });
+      }
       return;
     }
 
@@ -338,7 +415,7 @@ export default function App() {
         setCalcError("Error al procesar plantilla manual.");
       }
     }
-  }, [selectedPlanId, templateWorkbook, sheetSelection, form.kmDesde, form.kmHasta, form.cantidadVehiculos]);
+  }, [selectedPlanId, templateWorkbook, sheetSelection, form.kmDesde, form.kmHasta, form.cantidadVehiculos, modoCalculo, mantenimientosEspecificos]);
 
   // Form input changes
   const handleChange = (e) => {
@@ -756,7 +833,7 @@ export default function App() {
                     className="form-input" 
                     name="modeloVehiculo" 
                     value={form.modeloVehiculo} 
-                    placeholder="Ej: Wingle 7 4x4"
+                    placeholder="Ej: POER 4X2"
                     onChange={handleChange} 
                   />
                 </div>
@@ -772,31 +849,136 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Range KM */}
-              <div className="form-group half-width">
-                <div>
-                  <label className="form-label">KM Desde</label>
-                  <input 
-                    type="number"
-                    className="form-input" 
-                    name="kmDesde" 
-                    value={form.kmDesde} 
-                    placeholder="5000"
-                    onChange={handleChange} 
-                  />
-                </div>
-                <div>
-                  <label className="form-label">KM Hasta</label>
-                  <input 
-                    type="number"
-                    className="form-input" 
-                    name="kmHasta" 
-                    value={form.kmHasta} 
-                    placeholder="120000"
-                    onChange={handleChange} 
-                  />
+              {/* OBSERVACIÓN FIELD */}
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>
+                    <FileText size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
+                    Observación del Cliente (Mantenimientos Necesarios)
+                  </span>
+                  {mantenimientosEspecificos.length > 0 && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--success)', fontWeight: 600 }}>
+                      ⚡ {mantenimientosEspecificos.length} vehículos detectados
+                    </span>
+                  )}
+                </label>
+                <textarea 
+                  className="form-input" 
+                  rows={3}
+                  name="observacion" 
+                  value={form.observacion} 
+                  placeholder="Ej: HEI-1859= MANTTO DE 35.000 KM&#10;HEI-1845= MANTTO DE 30.000 KM&#10;HEI-1862= MANTTO DE 35.000 KM"
+                  onChange={handleObservacionChange}
+                  style={{ fontFamily: 'monospace', fontSize: '0.82rem', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* CALCULATION MODE SWITCHER */}
+              <div className="form-group">
+                <label className="form-label">
+                  <Sliders size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
+                  Modalidad de Cálculo de Mantenimientos
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    type="button"
+                    className={`btn ${modoCalculo === 'individual' || (modoCalculo === 'auto' && mantenimientosEspecificos.length > 0) ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: '0.55rem', fontSize: '0.78rem' }}
+                    onClick={() => setModoCalculo('individual')}
+                  >
+                    🚗 Por Vehículo Individual ({mantenimientosEspecificos.length || form.cantidadVehiculos})
+                  </button>
+                  <button 
+                    type="button"
+                    className={`btn ${modoCalculo === 'rango' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: '0.55rem', fontSize: '0.78rem' }}
+                    onClick={() => setModoCalculo('rango')}
+                  >
+                    📊 Rango Global ({form.kmDesde || '5000'}k - {form.kmHasta || '120k'}k)
+                  </button>
                 </div>
               </div>
+
+              {/* Individual Vehicle Maintenance List (if individual mode active) */}
+              {(modoCalculo === 'individual' || (modoCalculo === 'auto' && mantenimientosEspecificos.length > 0)) && (
+                <div className="form-group" style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                  <label className="form-label" style={{ marginBottom: '0.5rem', fontSize: '0.75rem' }}>
+                    Vehículos y Kilometrajes Asignados:
+                  </label>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                    {mantenimientosEspecificos.map((item, idx) => (
+                      <div key={item.id || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.25)', padding: '0.4rem 0.6rem', borderRadius: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '0.85rem' }}>{item.placa}</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>➜</span>
+                          <span style={{ fontWeight: 600, color: '#fff', fontSize: '0.85rem' }}>{item.km.toLocaleString()} KM</span>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => handleRemoveVehiculoMant(idx)}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}
+                          title="Eliminar vehículo"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add vehicle form */}
+                  <form onSubmit={handleAddVehiculoMant} style={{ display: 'flex', gap: '0.4rem' }}>
+                    <input 
+                      className="form-input" 
+                      placeholder="Placa (ej: HEI-1859)" 
+                      value={newVehiculoPlaca} 
+                      onChange={(e) => setNewVehiculoPlaca(e.target.value)}
+                      style={{ flex: 1, padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                    />
+                    <select 
+                      className="form-input"
+                      value={newVehiculoKm}
+                      onChange={(e) => setNewVehiculoKm(e.target.value)}
+                      style={{ width: '130px', padding: '0.4rem', fontSize: '0.8rem' }}
+                    >
+                      {[5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000, 70000, 75000, 80000, 85000, 90000, 95000, 100000, 105000, 110000, 115000, 120000, 125000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000, 250000].map(k => (
+                        <option key={k} value={k}>{k.toLocaleString()} KM</option>
+                      ))}
+                    </select>
+                    <button type="submit" className="btn btn-secondary" style={{ padding: '0.4rem 0.6rem', width: 'auto' }}>
+                      <Plus size={14} />
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* Range KM (if global range mode active) */}
+              {(modoCalculo === 'rango' || (modoCalculo === 'auto' && mantenimientosEspecificos.length === 0)) && (
+                <div className="form-group half-width">
+                  <div>
+                    <label className="form-label">KM Desde</label>
+                    <input 
+                      type="number"
+                      className="form-input" 
+                      name="kmDesde" 
+                      value={form.kmDesde} 
+                      placeholder="5000"
+                      onChange={handleChange} 
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">KM Hasta</label>
+                    <input 
+                      type="number"
+                      className="form-input" 
+                      name="kmHasta" 
+                      value={form.kmHasta} 
+                      placeholder="120000"
+                      onChange={handleChange} 
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Plazo & Vigencia */}
               <div className="form-group half-width">
@@ -898,7 +1080,11 @@ export default function App() {
                 <div>
                   <strong>{modelosDisponibles.find(m => m.id === selectedModeloId)?.nombre_completo || form.modeloVehiculo || 'Plan Seleccionado'}</strong>
                   <div style={{ fontSize: '0.75rem', marginTop: '2px', opacity: 0.85 }}>
-                    Rango: {form.kmDesde || '5000'} KM a {form.kmHasta || '120000'} KM | {form.cantidadVehiculos} Vehículo(s)
+                    {calcResult?.modo === 'individual' ? (
+                      <span>Modalidad: Por Vehículo Específico ({calcResult.tablaDetalle.length} Vehículos)</span>
+                    ) : (
+                      <span>Modalidad: Rango {form.kmDesde || '5000'} KM a {form.kmHasta || '120000'} KM | {form.cantidadVehiculos} Vehículo(s)</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -908,7 +1094,7 @@ export default function App() {
             <div className="card" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
               <h3 className="card-title">
                 <FileSpreadsheet size={20} className="text-muted" />
-                Detalle de Mantenimiento por KM
+                {calcResult?.modo === 'individual' ? 'Detalle por Vehículo' : 'Detalle de Mantenimiento por KM'}
               </h3>
 
               {calcError && (
@@ -921,7 +1107,7 @@ export default function App() {
               {!calcResult && !calcError && (
                 <div className="alert alert-warning" style={{ margin: 0, flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <AlertTriangle size={18} />
-                  <span>Carga la cotización o ingresa los kilómetros para ver el desglose.</span>
+                  <span>Carga la cotización o ingresa los datos para ver el desglose.</span>
                 </div>
               )}
 
@@ -930,21 +1116,47 @@ export default function App() {
                   <table className="preview-table">
                     <thead>
                       <tr>
-                        <th>Kilometraje</th>
-                        <th className="text-right">Repuestos</th>
-                        <th className="text-right">Lubricantes</th>
-                        <th className="text-right">Mano de Obra</th>
-                        <th className="text-right">Total Unit.</th>
+                        {calcResult.modo === 'individual' ? (
+                          <>
+                            <th>Vehículo / Placa</th>
+                            <th>Mantenimiento</th>
+                            <th className="text-right">Repuestos</th>
+                            <th className="text-right">Lubricantes</th>
+                            <th className="text-right">Mano de Obra</th>
+                            <th className="text-right">Total</th>
+                          </>
+                        ) : (
+                          <>
+                            <th>Kilometraje</th>
+                            <th className="text-right">Repuestos</th>
+                            <th className="text-right">Lubricantes</th>
+                            <th className="text-right">Mano de Obra</th>
+                            <th className="text-right">Total Unit.</th>
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
                       {calcResult.tablaDetalle.map((row, idx) => (
                         <tr key={idx}>
-                          <td>{row.km.toLocaleString()} KM</td>
-                          <td className="text-right">{getFmtCurrency(row.repuestos)}</td>
-                          <td className="text-right">{getFmtCurrency(row.lubricantes)}</td>
-                          <td className="text-right">{getFmtCurrency(row.mano_obra)}</td>
-                          <td className="text-right" style={{ fontWeight: 600 }}>{getFmtCurrency(row.total)}</td>
+                          {calcResult.modo === 'individual' ? (
+                            <>
+                              <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{row.placa}</td>
+                              <td>{row.km.toLocaleString()} KM</td>
+                              <td className="text-right">{getFmtCurrency(row.repuestos)}</td>
+                              <td className="text-right">{getFmtCurrency(row.lubricantes)}</td>
+                              <td className="text-right">{getFmtCurrency(row.mano_obra)}</td>
+                              <td className="text-right" style={{ fontWeight: 600 }}>{getFmtCurrency(row.total)}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td>{row.km.toLocaleString()} KM</td>
+                              <td className="text-right">{getFmtCurrency(row.repuestos)}</td>
+                              <td className="text-right">{getFmtCurrency(row.lubricantes)}</td>
+                              <td className="text-right">{getFmtCurrency(row.mano_obra)}</td>
+                              <td className="text-right" style={{ fontWeight: 600 }}>{getFmtCurrency(row.total)}</td>
+                            </>
+                          )}
                         </tr>
                       ))}
                     </tbody>

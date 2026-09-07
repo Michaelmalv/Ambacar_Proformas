@@ -51,7 +51,8 @@ export async function getModelosVehiculo() {
 /**
  * Robust vehicle model matcher for client quotation text.
  */
-export async function buscarPlanPorModelo(modeloTexto = "") {
+export async function buscarPlanPorModelo(modeloTexto = "", observacionTexto = "") {
+  const combined = `${modeloTexto || ''} ${observacionTexto || ''}`.toUpperCase().trim();
   const normalized = (modeloTexto || "").toUpperCase().trim();
   const { data: modelos } = await getModelosVehiculo();
   
@@ -75,21 +76,24 @@ export async function buscarPlanPorModelo(modeloTexto = "") {
     if (normalized.includes(mName)) score += 40;
 
     // Model families
-    if (mModelo.includes("WINGLE 7") && (normalized.includes("W7") || normalized.includes("WINGLE 7") || normalized.includes("WINGLE7") || normalized.includes("WINGLE"))) score += 30;
-    if (mModelo.includes("POER") && normalized.includes("POER")) score += 30;
-    if (mModelo.includes("TANK 300") && (normalized.includes("TANK 300") || normalized.includes("TANK300") || (normalized.includes("TANK") && normalized.includes("300")))) score += 40;
-    if (mModelo.includes("TANK 500") && (normalized.includes("TANK 500") || normalized.includes("TANK500") || (normalized.includes("TANK") && normalized.includes("500")))) score += 40;
-    if (mModelo.includes("KYC") && (normalized.includes("KYC") || normalized.includes("F3"))) score += 30;
-    if (mModelo.includes("WINGLE 2.8") && (normalized.includes("2.8") || normalized.includes("2,8"))) score += 40;
+    if (mModelo.includes("WINGLE 7") && (combined.includes("W7") || combined.includes("WINGLE 7") || combined.includes("WINGLE7") || (combined.includes("WINGLE") && !combined.includes("2.8")))) score += 30;
+    if (mModelo.includes("POER") && combined.includes("POER")) score += 30;
+    if (mModelo.includes("TANK 300") && (combined.includes("TANK 300") || combined.includes("TANK300") || (combined.includes("TANK") && combined.includes("300")))) score += 40;
+    if (mModelo.includes("TANK 500") && (combined.includes("TANK 500") || combined.includes("TANK500") || (combined.includes("TANK") && combined.includes("500")))) score += 40;
+    if (mModelo.includes("KYC") && (combined.includes("KYC") || combined.includes("F3"))) score += 30;
+    if (mModelo.includes("WINGLE 2.8") && (combined.includes("2.8") || combined.includes("2,8"))) score += 40;
 
-    // Traction matching (4x4 vs 4x2)
-    if ((normalized.includes("4X4") || normalized.includes("4 X 4") || normalized.includes("4WD") || normalized.includes("DOBLE TRACCION")) && (mTraccion.includes("4X4") || mName.includes("4X4"))) score += 20;
-    if ((normalized.includes("4X2") || normalized.includes("4 X 2") || normalized.includes("2WD") || normalized.includes("SIMPLE")) && (mTraccion.includes("4X2") || mName.includes("4X2"))) score += 20;
+    // Traction matching (4x4 vs 4x2) - Highest priority distinction
+    const has4x2 = combined.includes("4X2") || combined.includes("4 X 2") || combined.includes("2WD") || combined.includes("SIMPLE");
+    const has4x4 = combined.includes("4X4") || combined.includes("4 X 4") || combined.includes("4WD") || combined.includes("DOBLE TRACCION");
+
+    if (has4x2 && (mTraccion.includes("4X2") || mName.includes("4X2"))) score += 60;
+    if (has4x4 && (mTraccion.includes("4X4") || mName.includes("4X4"))) score += 60;
 
     // Fuel & engine matching
-    if (normalized.includes("DIESEL") && (mMotor.includes("DIESEL") || mName.includes("DIESEL"))) score += 10;
-    if (normalized.includes("GASOLINA") && (mMotor.includes("GASOLINA") || mName.includes("GASOLINA"))) score += 10;
-    if ((normalized.includes("POLIC") || normalized.includes("PATRULL")) && mName.includes("POLIC")) score += 25;
+    if (combined.includes("DIESEL") && (mMotor.includes("DIESEL") || mName.includes("DIESEL"))) score += 10;
+    if (combined.includes("GASOLINA") && (mMotor.includes("GASOLINA") || mName.includes("GASOLINA"))) score += 10;
+    if ((combined.includes("POLIC") || combined.includes("PATRULL")) && mName.includes("POLIC")) score += 25;
 
     if (score > highestScore && score > 0) {
       highestScore = score;
@@ -110,62 +114,13 @@ export async function buscarPlanPorModelo(modeloTexto = "") {
 }
 
 /**
- * Calculates maintenance costs for a given plan and KM range.
+ * Calculates maintenance costs for a given plan and KM range or individual vehicle maintenance list.
  */
-export async function getCostosPorKm(planId, kmDesde, kmHasta, cantidadVehiculos = 1) {
+export async function getCostosPorKm(planId, kmDesde, kmHasta, cantidadVehiculos = 1, mantenimientosEspecificos = null) {
   const kDesde = parseInt(kmDesde, 10) || 0;
   const kHasta = parseInt(kmHasta, 10) || 250000;
   const nVehiculos = parseInt(cantidadVehiculos, 10) || 1;
 
-  // 1. Check if Supabase has data
-  try {
-    const { data, error } = await supabase
-      .from('plan_costos_km')
-      .select('*')
-      .eq('plan_id', planId)
-      .gte('km', kDesde)
-      .lte('km', kHasta)
-      .order('km', { ascending: true });
-
-    if (!error && data && data.length > 0) {
-      let totalRepuestos1v = 0;
-      let totalLubricantes1v = 0;
-      let totalMo1v = 0;
-
-      const tablaDetalle = data.map(row => {
-        const rep = parseFloat(row.total_repuestos) || 0;
-        const lub = parseFloat(row.total_lubricantes) || 0;
-        const mo = parseFloat(row.total_mano_obra) || 0;
-        const tot = parseFloat(row.total_km) || (rep + lub + mo);
-
-        totalRepuestos1v += rep;
-        totalLubricantes1v += lub;
-        totalMo1v += mo;
-
-        return { km: row.km, repuestos: rep, lubricantes: lub, mano_obra: mo, total: tot };
-      });
-
-      const totalPreventivo1v = totalRepuestos1v + totalLubricantes1v + totalMo1v;
-
-      return {
-        error: false,
-        tablaDetalle,
-        totalRepuestos1v,
-        totalLubricantes1v,
-        totalMo1v,
-        totalPreventivo1v,
-        nVehiculos,
-        totalRepuestos: totalRepuestos1v * nVehiculos,
-        totalLubricantes: totalLubricantes1v * nVehiculos,
-        totalMo: totalMo1v * nVehiculos,
-        totalPreventivo: totalPreventivo1v * nVehiculos
-      };
-    }
-  } catch (err) {
-    console.warn("Supabase query failed, falling back to local dataset:", err);
-  }
-
-  // 2. Use Bundled Local Dataset from 5 Excels
   const localPlan = PLANES_MANTENIMIENTO_DATA.find(p => p.id === planId || p.codigo_plan === planId);
   if (!localPlan) {
     return {
@@ -174,6 +129,58 @@ export async function getCostosPorKm(planId, kmDesde, kmHasta, cantidadVehiculos
     };
   }
 
+  // 1. If specific individual vehicle maintenance list is given (e.g. from Observación)
+  if (mantenimientosEspecificos && Array.isArray(mantenimientosEspecificos) && mantenimientosEspecificos.length > 0) {
+    let totalRepuestos = 0;
+    let totalLubricantes = 0;
+    let totalMo = 0;
+
+    const tablaDetalle = mantenimientosEspecificos.map((item, index) => {
+      const km = item.km;
+      const dataKm = localPlan.costosPorKm[km] || { total_repuestos: 0, total_lubricantes: 0, total_mano_obra: 0, total_km: 0 };
+      const rep = parseFloat(dataKm.total_repuestos) || 0;
+      const lub = parseFloat(dataKm.total_lubricantes) || 0;
+      const mo = parseFloat(dataKm.total_mano_obra) || 0;
+      const tot = parseFloat(dataKm.total_km) || (rep + lub + mo);
+
+      totalRepuestos += rep;
+      totalLubricantes += lub;
+      totalMo += mo;
+
+      return {
+        itemNum: index + 1,
+        placa: item.placa || `Vehículo ${index + 1}`,
+        km,
+        repuestos: rep,
+        lubricantes: lub,
+        mano_obra: mo,
+        total: tot
+      };
+    });
+
+    const totalPreventivo = Math.round((totalRepuestos + totalLubricantes + totalMo) * 100) / 100;
+    totalRepuestos = Math.round(totalRepuestos * 100) / 100;
+    totalLubricantes = Math.round(totalLubricantes * 100) / 100;
+    totalMo = Math.round(totalMo * 100) / 100;
+
+    return {
+      error: false,
+      modo: 'individual',
+      mantenimientosEspecificos,
+      tablaDetalle,
+      nVehiculos: mantenimientosEspecificos.length,
+      totalRepuestos1v: totalRepuestos,
+      totalLubricantes1v: totalLubricantes,
+      totalMo1v: totalMo,
+      totalPreventivo1v: totalPreventivo,
+      totalRepuestos,
+      totalLubricantes,
+      totalMo,
+      totalPreventivo
+    };
+  }
+
+  // 2. Standard range calculation
   const allKms = Object.keys(localPlan.costosPorKm).map(Number).sort((a, b) => a - b);
   const matchingKms = allKms.filter(k => k >= kDesde && k <= kHasta);
 
@@ -203,20 +210,21 @@ export async function getCostosPorKm(planId, kmDesde, kmHasta, cantidadVehiculos
     return { km, repuestos: rep, lubricantes: lub, mano_obra: mo, total: tot };
   });
 
-  const totalPreventivo1v = totalRepuestos1v + totalLubricantes1v + totalMo1v;
+  const totalPreventivo1v = Math.round((totalRepuestos1v + totalLubricantes1v + totalMo1v) * 100) / 100;
 
   return {
     error: false,
+    modo: 'rango',
     tablaDetalle,
     totalRepuestos1v,
     totalLubricantes1v,
     totalMo1v,
     totalPreventivo1v,
     nVehiculos,
-    totalRepuestos: totalRepuestos1v * nVehiculos,
-    totalLubricantes: totalLubricantes1v * nVehiculos,
-    totalMo: totalMo1v * nVehiculos,
-    totalPreventivo: totalPreventivo1v * nVehiculos
+    totalRepuestos: Math.round(totalRepuestos1v * nVehiculos * 100) / 100,
+    totalLubricantes: Math.round(totalLubricantes1v * nVehiculos * 100) / 100,
+    totalMo: Math.round(totalMo1v * nVehiculos * 100) / 100,
+    totalPreventivo: Math.round(totalPreventivo1v * nVehiculos * 100) / 100
   };
 }
 
