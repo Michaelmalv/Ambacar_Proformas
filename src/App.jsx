@@ -559,6 +559,7 @@ export default function App() {
       totalCorrectivo,
       granTotal,
       hojaElegida: currentModelName || sheetSelection || "MANTENIMIENTO",
+      selectedPlanId: selectedPlanId,
       headerImage: headerImg,
       footerImage: footerImg,
       tablaDetalle: calcResult.tablaDetalle

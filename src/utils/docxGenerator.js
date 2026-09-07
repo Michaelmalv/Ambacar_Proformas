@@ -14,6 +14,7 @@ import {
   VerticalAlign,
   BorderStyle
 } from 'docx';
+import { getPlanMatrix } from '../services/supabase';
 
 // Convert base64 data URL to Uint8Array for docx ImageRun
 function base64ToUint8Array(base64String) {
@@ -33,6 +34,9 @@ const pt = (v) => v * 20;
 // Width helper: Converts cm to dxa (1 cm = 567 dxa)
 const cm = (v) => Math.round(v * 567);
 
+const DEFAULT_FONT = "Times New Roman";
+const LINE_SPACING_115 = 276; // 1.15 line spacing (240 * 1.15 = 276 dxa)
+
 export async function generarProformaDocx(data) {
   const {
     razonSocial = "",
@@ -47,9 +51,12 @@ export async function generarProformaDocx(data) {
     vigenciaOferta = "90 días",
     observacion = "",
     objetoContrato = "Plan de mantenimiento preventivo y correctivo de vehículos",
+    kmDesde = "5000",
+    kmHasta = "120000",
     placas = [],
     incluirCorrectivos = false,
     hojaElegida = "",
+    selectedPlanId = "",
     
     // Totals
     totalRepuestos = 0,
@@ -76,7 +83,7 @@ export async function generarProformaDocx(data) {
   const ddStr = String(today.getDate()).padStart(2, '0');
   const numProforma = `AMB-PV-${year}-AUTO-${mmStr}${ddStr}`;
 
-  // Paragraph helper
+  // Paragraph helper with 1.15 line spacing and Times New Roman 11pt (size: 22) by default
   const p = (text, options = {}) => {
     const runs = [];
     if (text) {
@@ -84,9 +91,9 @@ export async function generarProformaDocx(data) {
         text,
         bold: !!options.bold,
         italic: !!options.italic,
-        size: options.size || 18, // default 9pt (size 18)
-        color: options.color || undefined,
-        font: "Arial"
+        size: options.size || 22, // default 11pt (size 22)
+        color: options.color || "000000",
+        font: DEFAULT_FONT
       }));
     }
     
@@ -96,9 +103,9 @@ export async function generarProformaDocx(data) {
           text: r.text || "",
           bold: !!r.bold,
           italic: !!r.italic,
-          size: r.size || options.size || 18,
-          color: r.color || undefined,
-          font: "Arial"
+          size: r.size || options.size || 22,
+          color: r.color || "000000",
+          font: DEFAULT_FONT
         }));
       });
     }
@@ -108,6 +115,8 @@ export async function generarProformaDocx(data) {
       spacing: {
         before: pt(options.before || 0),
         after: pt(options.after || 4),
+        line: LINE_SPACING_115,
+        lineRule: "auto"
       },
       indent: options.leftIndent ? { left: cm(options.leftIndent) } : undefined,
       border: options.border || undefined,
@@ -115,12 +124,12 @@ export async function generarProformaDocx(data) {
     });
   };
 
-  // Heading helper
+  // Heading helper (Times New Roman, bold, 11pt, black, 1.15 spacing)
   const heading = (text, spaceBefore = 6, spaceAfter = 3) => {
     return p(text, {
       bold: true,
-      size: 20, // 10pt
-      color: "CC0000",
+      size: 22, // 11pt
+      color: "000000",
       align: AlignmentType.LEFT,
       before: spaceBefore,
       after: spaceAfter
@@ -134,14 +143,14 @@ export async function generarProformaDocx(data) {
       cellChildren = options.children;
     } else {
       const runs = [];
-      if (text) {
+      if (text !== undefined && text !== null) {
         runs.push(new TextRun({
-          text,
+          text: String(text),
           bold: !!options.bold,
           italic: !!options.italic,
-          size: options.size || 18, // 9pt
-          color: options.color || undefined,
-          font: "Arial"
+          size: options.size || 22, // default 11pt
+          color: options.color || "000000",
+          font: DEFAULT_FONT
         }));
       }
       if (options.runs) {
@@ -150,15 +159,20 @@ export async function generarProformaDocx(data) {
             text: r.text || "",
             bold: !!r.bold,
             italic: !!r.italic,
-            size: r.size || options.size || 18,
-            color: r.color || undefined,
-            font: "Arial"
+            size: r.size || options.size || 22,
+            color: r.color || "000000",
+            font: DEFAULT_FONT
           }));
         });
       }
       cellChildren.push(new Paragraph({
         alignment: options.align || AlignmentType.LEFT,
-        spacing: { before: pt(2), after: pt(2) },
+        spacing: { 
+          before: pt(options.pBefore !== undefined ? options.pBefore : 2), 
+          after: pt(options.pAfter !== undefined ? options.pAfter : 2),
+          line: LINE_SPACING_115,
+          lineRule: "auto"
+        },
         children: runs
       }));
     }
@@ -166,7 +180,7 @@ export async function generarProformaDocx(data) {
     return new TableCell({
       children: cellChildren,
       shading: options.bg ? { fill: options.bg } : undefined,
-      width: options.widthCm ? { size: cm(options.widthCm), type: WidthType.DXA } : undefined,
+      width: options.widthCm ? { size: cm(options.widthCm), type: WidthType.DXA } : (options.widthDxa ? { size: options.widthDxa, type: WidthType.DXA } : undefined),
       columnSpan: options.columnSpan || undefined,
       rowSpan: options.rowSpan || undefined,
       verticalAlign: VerticalAlign.CENTER
@@ -229,14 +243,19 @@ export async function generarProformaDocx(data) {
       style: 'decimal',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(val);
+    }).format(val || 0);
+  };
+
+  const fmtMoneyMatrix = (val) => {
+    if (val === null || val === undefined || val === '' || val === 0) return '';
+    return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
   };
 
   // --- BUILD THE DOCUMENT CONTENT ---
   const docChildren = [
     // Fechas and Nro Proforma
-    p(`Quito, ${fechaStr}`, { align: AlignmentType.RIGHT, after: 0, size: 18 }),
-    p(`Proforma Nro. ${numProforma}`, { align: AlignmentType.RIGHT, after: 6, size: 18 }),
+    p(`Quito, ${fechaStr}`, { align: AlignmentType.RIGHT, after: 0, size: 22 }),
+    p(`Proforma Nro. ${numProforma}`, { align: AlignmentType.RIGHT, after: 6, size: 22 }),
     
     // Red horizontal separator
     new Paragraph({
@@ -251,11 +270,11 @@ export async function generarProformaDocx(data) {
       }
     }),
 
-    // Document Title
+    // Document Title: Times New Roman 14pt (size 28), Bold, in Black, Centered, 1.15 line spacing
     p(objetoContrato || "Plan de mantenimiento preventivo y correctivo de vehículos", {
       bold: true,
-      size: 26, // 13pt
-      color: "CC0000",
+      size: 28, // 14pt
+      color: "000000", // in Black
       align: AlignmentType.CENTER,
       after: 8
     }),
@@ -272,6 +291,7 @@ export async function generarProformaDocx(data) {
     ].map(([lbl, val]) => p("", {
       leftIndent: 0.3,
       after: 2,
+      size: 22,
       runs: [
         { text: "- ", bold: false },
         { text: lbl, bold: true },
@@ -301,8 +321,8 @@ export async function generarProformaDocx(data) {
         ["Correo electrónico:", correo]
       ].map(([lbl, val]) => new TableRow({
         children: [
-          cell(lbl, { bold: true, bg: "E0E0E0", widthCm: 4 }),
-          cell(val, { widthCm: 13 })
+          cell(lbl, { bold: true, bg: "E0E0E0", widthCm: 4, size: 22 }),
+          cell(val, { widthCm: 13, size: 22 })
         ]
       }))
     }),
@@ -324,14 +344,14 @@ export async function generarProformaDocx(data) {
       rows: [
         new TableRow({
           children: [
-            cell("CODIGO CPC", { bold: true, bg: "E0E0E0", align: AlignmentType.CENTER, widthCm: 3 }),
-            cell("DESCRIPCIÓN", { bold: true, bg: "E0E0E0", widthCm: 14 })
+            cell("CODIGO CPC", { bold: true, bg: "E0E0E0", align: AlignmentType.CENTER, widthCm: 3, size: 22 }),
+            cell("DESCRIPCIÓN", { bold: true, bg: "E0E0E0", widthCm: 14, size: 22 })
           ]
         }),
         new TableRow({
           children: [
-            cell("87141", { align: AlignmentType.CENTER, widthCm: 3 }),
-            cell("SERVICIOS DE MANTENIMIENTO Y REPARACION DE VEHÍCULOS DE MOTOR.", { widthCm: 14 })
+            cell("87141", { align: AlignmentType.CENTER, widthCm: 3, size: 22 }),
+            cell("SERVICIOS DE MANTENIMIENTO Y REPARACION DE VEHÍCULOS DE MOTOR.", { widthCm: 14, size: 22 })
           ]
         })
       ]
@@ -341,8 +361,8 @@ export async function generarProformaDocx(data) {
 
     // Preventivo Legal Texts
     heading("MANTENIMIENTO PREVENTIVO"),
-    p("El mencionado mantenimiento conlleva la programación de inspecciones, tanto de funcionamiento como de seguridad, ajustes, reparaciones o cambio de repuestos, análisis, limpieza, cambio de lubricantes, calibración, mano de obra, entre otras, que deben desarrollarse de forma periódica con base en la planificación establecida por el proveedor autorizado AMBACAR CIA. LTDA., conforme se determina a continuación:"),
-    p("Considerando la información remitida por el proveedor autorizado para brindar el servicio, este tipo de mantenimiento debe llevarse a cabo considerándose los plazos establecidos para cada vehículo (tiempo, kilometro, recorrido), esto es cada 5.000 Km, sin dejar de mencionar que los mismos se realizan en condiciones normales, conforme el siguiente detalle:"),
+    p("El mencionado mantenimiento conlleva la programación de inspecciones, tanto de funcionamiento como de seguridad, ajustes, reparaciones o cambio de repuestos, análisis, limpieza, cambio de lubricantes, calibración, mano de obra, entre otras, que deben desarrollarse de forma periódica con base en la planificación establecida por el proveedor autorizado AMBACAR CIA. LTDA., conforme se determina a continuación:", { size: 22 }),
+    p("Considerando la información remitida por el proveedor autorizado para brindar el servicio, este tipo de mantenimiento debe llevarse a cabo considerándose los plazos establecidos para cada vehículo (tiempo, kilometro, recorrido), esto es cada 5.000 Km, sin dejar de mencionar que los mismos se realizan en condiciones normales, conforme el siguiente detalle:", { size: 22 }),
     
     ...[
       ["a) ", "El proveedor deberá garantizar el cumplimiento de la garantía técnica en cumplimiento del principio de vigencia tecnológica establecido en la normativa legal vigente, en todos los trabajos desarrollados por el contratista."],
@@ -353,6 +373,7 @@ export async function generarProformaDocx(data) {
     ].map(([letra, texto]) => p("", {
       leftIndent: 0.5,
       after: 2,
+      size: 22,
       runs: [
         { text: letra, bold: true },
         { text: texto }
@@ -368,9 +389,9 @@ export async function generarProformaDocx(data) {
       "Para la realización de trabajos de mantenimiento correctivos; y establecer el presupuesto de este rubro, se deberá utilizar el catálogo referencial de valores de mantenimiento correctivo, para el modelo de camionetas adquiridas, otorgado por el proveedor del servicio AMBACAR CIA. LTDA.",
       "El mantenimiento correctivo es estimado, ya que su concurrencia no puede ser planificada. Los costos de repuestos y trabajos que se ejecutaren pueden variar de acuerdo con daños ocultos, los mismos que puede aumentar o disminuir los rubros relacionados a repuestos y mano de obra.",
       "En los casos que exista un desperfecto no contemplado para los trabajos de mantenimiento correctivo, el taller deberá contar con todos los equipos necesarios a fin de atender el requerimiento de reparación de manera ágil y oportuna evitando de esta manera que el vehículo deba permanecer inoperativo por un periodo de tiempo prolongado, excepto en los casos que la rehabilitación amerite."
-    ].map(txt => p(txt)),
+    ].map(txt => p(txt, { size: 22 })),
     
-    p("Adicionalmente, se deberá considerar los siguientes aspectos:"),
+    p("Adicionalmente, se deberá considerar los siguientes aspectos:", { size: 22 }),
     ...[
       ["a) ", "Entiéndase como trabajos correctivos aquellos que por ser de carácter imprevisible técnicamente no pueden contemplarse en el Plan de Mantenimiento Preventivo y/o garantía técnica otorgada por el fabricante."],
       ["b) ", "El proveedor tendrá la responsabilidad de realizar la corrección y reparación de averías o fallas mecánicas o de cualquier índole producida de manera espontánea en los vehículos, en base a la orden de mantenimiento."],
@@ -381,6 +402,7 @@ export async function generarProformaDocx(data) {
     ].map(([letra, texto]) => p("", {
       leftIndent: 0.5,
       after: 2,
+      size: 22,
       runs: [
         { text: letra, bold: true },
         { text: texto }
@@ -398,6 +420,7 @@ export async function generarProformaDocx(data) {
     ].map(([prefix, txt]) => p("", {
       italic: true,
       after: 3,
+      size: 22,
       runs: [
         { text: prefix, bold: true, italic: true },
         { text: txt }
@@ -430,27 +453,27 @@ export async function generarProformaDocx(data) {
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                spacing: { before: pt(2), after: pt(0) },
+                spacing: { before: pt(2), after: pt(0), line: LINE_SPACING_115, lineRule: "auto" },
                 children: [
                   new TextRun({
                     text: `COSTOS MANTENIMIENTO ${cleanModelTitle}`,
                     bold: true,
-                    size: 18,
+                    size: 22,
                     color: "FFFFFF",
-                    font: "Arial"
+                    font: DEFAULT_FONT
                   })
                 ]
               }),
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                spacing: { before: pt(0), after: pt(2) },
+                spacing: { before: pt(0), after: pt(2), line: LINE_SPACING_115, lineRule: "auto" },
                 children: [
                   new TextRun({
                     text: `PARA ${cantidadVehiculos} VEHÍCULOS`,
                     bold: true,
-                    size: 18,
+                    size: 22,
                     color: "FFFFFF",
-                    font: "Arial"
+                    font: DEFAULT_FONT
                   })
                 ]
               })
@@ -461,26 +484,26 @@ export async function generarProformaDocx(data) {
 
       const repuestosRow = new TableRow({
         children: [
-          cell("1", { align: AlignmentType.CENTER, widthCm: 1 }),
-          cell("Total Repuestos", { widthCm: 4 }),
-          cell("Mantenimiento preventivo", { rowSpan: 3, widthCm: 8 }),
-          cell(`$ ${fmt(totalRepuestos)}`, { align: AlignmentType.RIGHT, widthCm: 4 })
+          cell("1", { align: AlignmentType.CENTER, widthCm: 1, size: 22 }),
+          cell("Total Repuestos", { widthCm: 4, size: 22 }),
+          cell("Mantenimiento preventivo", { rowSpan: 3, widthCm: 8, size: 22 }),
+          cell(`$ ${fmt(totalRepuestos)}`, { align: AlignmentType.RIGHT, widthCm: 4, size: 22 })
         ]
       });
 
       const lubricantesRow = new TableRow({
         children: [
-          cell("2", { align: AlignmentType.CENTER, widthCm: 1 }),
-          cell("Total Lubricantes", { widthCm: 4 }),
-          cell(`$ ${fmt(totalLubricantes)}`, { align: AlignmentType.RIGHT, widthCm: 4 })
+          cell("2", { align: AlignmentType.CENTER, widthCm: 1, size: 22 }),
+          cell("Total Lubricantes", { widthCm: 4, size: 22 }),
+          cell(`$ ${fmt(totalLubricantes)}`, { align: AlignmentType.RIGHT, widthCm: 4, size: 22 })
         ]
       });
 
       const manoObraRow = new TableRow({
         children: [
-          cell("3", { align: AlignmentType.CENTER, widthCm: 1 }),
-          cell("Total Mano de Obra", { widthCm: 4 }),
-          cell(`$ ${fmt(totalManoObra)}`, { align: AlignmentType.RIGHT, widthCm: 4 })
+          cell("3", { align: AlignmentType.CENTER, widthCm: 1, size: 22 }),
+          cell("Total Mano de Obra", { widthCm: 4, size: 22 }),
+          cell(`$ ${fmt(totalManoObra)}`, { align: AlignmentType.RIGHT, widthCm: 4, size: 22 })
         ]
       });
 
@@ -489,10 +512,10 @@ export async function generarProformaDocx(data) {
       if (incluirCorrectivos) {
         rows.push(new TableRow({
           children: [
-            cell("4", { align: AlignmentType.CENTER, widthCm: 1 }),
-            cell("Mantenimiento correctivo", { widthCm: 4 }),
-            cell(descCorrectivo, { widthCm: 8 }),
-            cell(`$ ${fmt(totalCorrectivo)}`, { align: AlignmentType.RIGHT, widthCm: 4 })
+            cell("4", { align: AlignmentType.CENTER, widthCm: 1, size: 22 }),
+            cell("Mantenimiento correctivo", { widthCm: 4, size: 22 }),
+            cell(descCorrectivo, { widthCm: 8, size: 22 }),
+            cell(`$ ${fmt(totalCorrectivo)}`, { align: AlignmentType.RIGHT, widthCm: 4, size: 22 })
           ]
         }));
       }
@@ -500,10 +523,10 @@ export async function generarProformaDocx(data) {
       const totalLabel = incluirCorrectivos ? "Total 1+2+3+4" : "Total 1+2+3";
       rows.push(new TableRow({
         children: [
-          cell("", { widthCm: 1 }),
-          cell("", { widthCm: 4 }),
-          cell(totalLabel, { bold: true, align: AlignmentType.RIGHT, bg: "FFCCCC", widthCm: 8 }),
-          cell(`$ ${fmt(granTotal)}`, { bold: true, align: AlignmentType.RIGHT, bg: "FFCCCC", widthCm: 4 })
+          cell("", { widthCm: 1, size: 22 }),
+          cell("", { widthCm: 4, size: 22 }),
+          cell(totalLabel, { bold: true, align: AlignmentType.RIGHT, bg: "FFCCCC", widthCm: 8, size: 22 }),
+          cell(`$ ${fmt(granTotal)}`, { bold: true, align: AlignmentType.RIGHT, bg: "FFCCCC", widthCm: 4, size: 22 })
         ]
       }));
 
@@ -521,7 +544,7 @@ export async function generarProformaDocx(data) {
       });
     })(),
 
-    p("Costos no incluyen IVA", { align: AlignmentType.CENTER, italic: true, size: 16, before: 4, after: 8 }),
+    p("Costos no incluyen IVA", { align: AlignmentType.CENTER, italic: true, size: 20, before: 4, after: 8 }),
 
     // Observaciones
     heading("OBSERVACIONES:"),
@@ -532,6 +555,7 @@ export async function generarProformaDocx(data) {
     ].map(txt => p("", {
       leftIndent: 0.5,
       after: 3,
+      size: 22,
       runs: [
         { text: "- ", bold: false },
         { text: txt }
@@ -545,6 +569,7 @@ export async function generarProformaDocx(data) {
     ].map(txt => p("", {
       leftIndent: 1.0,
       after: 3,
+      size: 22,
       runs: [
         { text: "o  ", bold: false },
         { text: txt }
@@ -555,6 +580,7 @@ export async function generarProformaDocx(data) {
     p("", {
       leftIndent: 0.5,
       after: 0,
+      size: 22,
       runs: [
         { text: "- ", bold: false },
         { text: "Garantía Técnica: ", bold: true },
@@ -564,12 +590,14 @@ export async function generarProformaDocx(data) {
     
     p("La garantía deberá ser presentada al momento de la suscripción de la Orden de Compra o del Contrato, y permanecerá vigente hasta la finalización del último mantenimiento realizado.", {
       leftIndent: 0.8,
-      after: 3
+      after: 3,
+      size: 22
     }),
 
     p("", {
       leftIndent: 0.5,
       after: 3,
+      size: 22,
       runs: [
         { text: "- ", bold: false },
         { text: `Vigencia de la Proforma: ${vigenciaOferta || '90 días'} calendario, contados a partir de su emisión.` }
@@ -579,11 +607,171 @@ export async function generarProformaDocx(data) {
     new Paragraph({ spacing: { after: pt(8) } }),
 
     // Firmas
-    p("Atentamente,", { size: 18, after: 30 }),
-    p("Ing. Luis Vintimilla", { size: 18, after: 0 }),
-    p("APODERADO ESPECIAL", { bold: true, size: 18, after: 0 }),
-    p("AMBACAR CIA. LTDA.", { bold: true, size: 18, after: 0 })
+    p("Atentamente,", { size: 22, after: 30 }),
+    p("Ing. Luis Vintimilla", { size: 22, after: 0 }),
+    p("APODERADO ESPECIAL", { bold: true, size: 22, after: 0 }),
+    p("AMBACAR CIA. LTDA.", { bold: true, size: 22, after: 0 })
   ];
+
+  // --- ANEXO: PLAN DE MANTENIMIENTO ---
+  const matrix = getPlanMatrix(selectedPlanId, modeloVehiculo || hojaElegida);
+  
+  if (matrix && matrix.rows && matrix.rows.length > 0) {
+    const kDesde = parseInt(kmDesde, 10) || 5000;
+    const kHasta = parseInt(kmHasta, 10) || 120000;
+
+    let targetKms = matrix.kms.filter(k => k >= kDesde && k <= kHasta);
+    if (targetKms.length === 0) {
+      targetKms = matrix.kms.slice(0, 12);
+    }
+
+    // Split targetKms into chunks of at most 12 columns per table for optimal page layout
+    const chunkSize = 12;
+    const chunks = [];
+    for (let i = 0; i < targetKms.length; i += chunkSize) {
+      chunks.push(targetKms.slice(i, i + chunkSize));
+    }
+
+    // Add Anexo Header
+    docChildren.push(
+      new Paragraph({
+        pageBreakBefore: true,
+        alignment: AlignmentType.CENTER,
+        spacing: { line: LINE_SPACING_115, lineRule: "auto", before: pt(14), after: pt(2) },
+        children: [
+          new TextRun({
+            text: "ANEXO",
+            bold: true,
+            size: 28, // 14pt
+            font: DEFAULT_FONT,
+            color: "000000"
+          })
+        ]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { line: LINE_SPACING_115, lineRule: "auto", after: pt(10) },
+        children: [
+          new TextRun({
+            text: "PLAN DE MANTENIMIENTO",
+            bold: true,
+            size: 28, // 14pt
+            font: DEFAULT_FONT,
+            color: "000000"
+          })
+        ]
+      })
+    );
+
+    // Build each table chunk
+    chunks.forEach((chunkKms, chunkIdx) => {
+      if (chunkIdx > 0) {
+        docChildren.push(new Paragraph({ spacing: { after: pt(10) } }));
+      }
+
+      const firstColCm = 4.2;
+      const kmColCm = Math.max(0.95, (13.0 / chunkKms.length));
+      const colWidths = [cm(firstColCm), ...chunkKms.map(() => cm(kmColCm))];
+
+      const anexoTableRows = [];
+
+      // Row 0: Top title spanning all columns
+      anexoTableRows.push(new TableRow({
+        children: [
+          cell(matrix.title, {
+            columnSpan: chunkKms.length + 1,
+            bold: true,
+            size: 15,
+            align: AlignmentType.CENTER,
+            bg: "F2F2F2",
+            pBefore: 1,
+            pAfter: 1
+          })
+        ]
+      }));
+
+      // Row 1: Header row with model label and KM columns
+      anexoTableRows.push(new TableRow({
+        children: [
+          cell(matrix.headerLabel || "GWM TANK DIESEL", {
+            bold: true,
+            size: 14,
+            align: AlignmentType.CENTER,
+            bg: "E6E6E6",
+            widthCm: firstColCm,
+            pBefore: 1,
+            pAfter: 1
+          }),
+          ...chunkKms.map(km => cell(`${(km / 1000).toFixed(3)} KM`, {
+            bold: true,
+            size: 13,
+            align: AlignmentType.CENTER,
+            bg: "E6E6E6",
+            widthCm: kmColCm,
+            pBefore: 1,
+            pAfter: 1
+          }))
+        ]
+      }));
+
+      // Content item and subtotal rows
+      matrix.rows.forEach(row => {
+        let bg = undefined;
+        let isBold = false;
+
+        if (row.type === 'total_repuestos') {
+          bg = "D9E1F2"; // Soft blue-gray
+          isBold = true;
+        } else if (row.type === 'total_lubricantes') {
+          bg = "FFE699"; // Yellow
+          isBold = true;
+        } else if (row.type === 'total_mo') {
+          bg = "C6E0B4"; // Light Green
+          isBold = true;
+        } else if (row.type === 'total_km') {
+          bg = "BDD7EE"; // Blue
+          isBold = true;
+        }
+
+        anexoTableRows.push(new TableRow({
+          children: [
+            cell(row.descripcion, {
+              bold: isBold,
+              bg,
+              size: isBold ? 14 : 13,
+              widthCm: firstColCm,
+              pBefore: 1,
+              pAfter: 1
+            }),
+            ...chunkKms.map(km => cell(fmtMoneyMatrix(row.values[km]), {
+              align: AlignmentType.CENTER,
+              bold: isBold,
+              bg,
+              size: 13,
+              widthCm: kmColCm,
+              pBefore: 1,
+              pAfter: 1
+            }))
+          ]
+        }));
+      });
+
+      const anexoTable = new Table({
+        columnWidths: colWidths,
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+          left: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+          right: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+          insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: "D3D3D3" },
+          insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "D3D3D3" }
+        },
+        rows: anexoTableRows
+      });
+
+      docChildren.push(anexoTable);
+    });
+  }
 
   // --- CREATE THE DOCUMENT STRUCTURE ---
   const doc = new Document({

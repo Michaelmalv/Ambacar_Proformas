@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { PLANES_MANTENIMIENTO_DATA } from '../data/planesData';
+import { PLAN_MATRICES } from '../data/planMatrices';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://mblsjoreokpsjtdzjrae.supabase.co";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey || "dummy-anon-key");
+export { PLAN_MATRICES };
 
 export const DEFAULT_MODELOS = PLANES_MANTENIMIENTO_DATA.map(p => ({
   id: p.id,
@@ -309,4 +311,33 @@ export async function getHistorialProformas() {
     console.error("Error fetching historial proformas:", err);
     return { data: [], error: err.message };
   }
+}
+
+/**
+ * Returns the complete matrix of rows, items and costs for a given plan or model.
+ */
+export function getPlanMatrix(planId, modeloNombre = "") {
+  if (planId && PLAN_MATRICES[planId]) {
+    return PLAN_MATRICES[planId];
+  }
+  
+  const planObj = PLANES_MANTENIMIENTO_DATA.find(p => p.id === planId || p.codigo_plan === planId);
+  if (planObj && PLAN_MATRICES[planObj.codigo_plan]) {
+    return PLAN_MATRICES[planObj.codigo_plan];
+  }
+
+  const text = (modeloNombre || "").toUpperCase();
+  if (text.includes("TANK 300") || text.includes("TANK300")) return PLAN_MATRICES["TANK300-120K"];
+  if (text.includes("TANK 500") || text.includes("TANK500")) return PLAN_MATRICES["TANK500-120K"];
+  if (text.includes("2.8") || text.includes("2,8")) return PLAN_MATRICES["W28-DIE-120K"];
+  if (text.includes("WINGLE") && text.includes("4X2")) return PLAN_MATRICES["W7-DIE-4X2-250K"];
+  if (text.includes("WINGLE") || text.includes("W7")) return PLAN_MATRICES["W7-DIE-4X4-250K"];
+  if (text.includes("POLIC")) return PLAN_MATRICES["POER-POLICIA-120K"];
+  if (text.includes("POER") && text.includes("GASOLINA")) return PLAN_MATRICES["POER-GAS-120K"];
+  if (text.includes("POER") && text.includes("4X2")) return PLAN_MATRICES["POER-DIE-4X2-200K"];
+  if (text.includes("POER")) return PLAN_MATRICES["POER-DIE-4X4-200K"];
+  if (text.includes("KYC") && text.includes("4X2")) return PLAN_MATRICES["KYC-F3-4X2-120K"];
+  if (text.includes("KYC")) return PLAN_MATRICES["KYC-F3-4X4-120K"];
+
+  return PLAN_MATRICES["TANK300-120K"] || Object.values(PLAN_MATRICES)[0];
 }
