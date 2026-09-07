@@ -568,10 +568,11 @@ export default function App() {
       {/* Header section */}
       <header className="app-header">
         <div className="brand-section">
-          <span className="brand-logo">🚗</span>
+          <img src="/ambacar_logo.png" alt="Ambacar" className="brand-logo-img" />
+          <div className="brand-divider"></div>
           <div>
-            <h1 className="brand-title">Generador de Proformas AMBACAR</h1>
-            <p className="brand-subtitle">Cotizaciones conectadas con Base de Datos Supabase</p>
+            <h1 className="brand-title">Generador de Proformas <span>AMBACAR</span></h1>
+            <p className="brand-subtitle">Cotizaciones Corporativas conectadas con Supabase</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -936,23 +937,23 @@ export default function App() {
 
               {/* Individual Vehicle Maintenance List (if individual mode active) */}
               {(modoCalculo === 'individual' || (modoCalculo === 'auto' && mantenimientosEspecificos.length > 0)) && (
-                <div className="form-group" style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                  <label className="form-label" style={{ marginBottom: '0.5rem', fontSize: '0.75rem' }}>
+                <div className="form-group" style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                  <label className="form-label" style={{ marginBottom: '0.5rem', fontSize: '0.78rem' }}>
                     Vehículos y Kilometrajes Asignados:
                   </label>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.75rem' }}>
                     {mantenimientosEspecificos.map((item, idx) => (
-                      <div key={item.id || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.25)', padding: '0.4rem 0.6rem', borderRadius: '4px' }}>
+                      <div key={item.id || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ffffff', border: '1px solid var(--border-light)', padding: '0.45rem 0.65rem', borderRadius: '6px', boxShadow: 'var(--shadow-sm)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '0.85rem' }}>{item.placa}</span>
+                          <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.85rem' }}>{item.placa}</span>
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>➜</span>
-                          <span style={{ fontWeight: 600, color: '#fff', fontSize: '0.85rem' }}>{item.km.toLocaleString()} KM</span>
+                          <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.85rem' }}>{item.km.toLocaleString()} KM</span>
                         </div>
                         <button 
                           type="button"
                           onClick={() => handleRemoveVehiculoMant(idx)}
-                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}
+                          style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px' }}
                           title="Eliminar vehículo"
                         >
                           <Trash2 size={13} />
@@ -968,13 +969,13 @@ export default function App() {
                       placeholder="Placa (ej: HEI-1859)" 
                       value={newVehiculoPlaca} 
                       onChange={(e) => setNewVehiculoPlaca(e.target.value)}
-                      style={{ flex: 1, padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                      style={{ flex: 1, padding: '0.45rem 0.6rem', fontSize: '0.8rem' }}
                     />
                     <select 
                       className="form-input"
                       value={newVehiculoKm}
                       onChange={(e) => setNewVehiculoKm(e.target.value)}
-                      style={{ width: '130px', padding: '0.4rem', fontSize: '0.8rem' }}
+                      style={{ width: '130px', padding: '0.45rem', fontSize: '0.8rem' }}
                     >
                       {[5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000, 70000, 75000, 80000, 85000, 90000, 95000, 100000, 105000, 110000, 115000, 120000, 125000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000, 250000].map(k => (
                         <option key={k} value={k}>{k.toLocaleString()} KM</option>
@@ -1201,7 +1202,7 @@ export default function App() {
             </div>
 
             {/* Action Card: Generate docx */}
-            <div className="card" style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="card" style={{ padding: '1.25rem' }}>
               <button 
                 className="btn btn-primary"
                 disabled={!calcResult || isGenerating}
