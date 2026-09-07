@@ -208,6 +208,39 @@ export async function detectarCorrectivosExcel(fileBuffer, grid) {
 }
 
 /**
+ * Scans the entire worksheet grid for explicit vehicle model mentions.
+ */
+export function detectarModeloEnGrid(grid) {
+  if (!grid || !Array.isArray(grid)) return "";
+  for (let r = 0; r < Math.min(grid.length, 50); r++) {
+    const row = grid[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const val = (row[c] || "").toString().toUpperCase().trim();
+      if (!val) continue;
+
+      if (val.includes("TANK 300") || val.includes("TANK300")) return "TANK 300 4X4";
+      if (val.includes("TANK 500") || val.includes("TANK500")) return "TANK 500 4X4";
+      if (val.includes("WINGLE 2.8") || val.includes("WINGLE 2,8")) return "WINGLE 2.8 DIESEL";
+      if (val.includes("WINGLE 7") || val.includes("WINGLE7") || val.includes("W7")) {
+        if (val.includes("4X2") || val.includes("2WD")) return "WINGLE 7 DIESEL 4X2";
+        return "WINGLE 7 DIESEL 4X4";
+      }
+      if (val.includes("POER")) {
+        if (val.includes("GASOLINA")) return "GWM POER GASOLINA";
+        if (val.includes("POLIC") || val.includes("PATRULL")) return "GWM POER DIESEL PATRULLEROS POLICIA";
+        if (val.includes("4X2") || val.includes("2WD")) return "GWM POER DIESEL 4X2";
+        return "GWM POER DIESEL 4X4";
+      }
+      if (val.includes("KYC") || val.includes("F3")) {
+        if (val.includes("4X2")) return "KYC F3 4X2";
+        return "KYC F3 4X4";
+      }
+    }
+  }
+  return "";
+}
+
+/**
  * Parses plate numbers from the spreadsheet.
  */
 export function parsePlacas(grid) {
@@ -217,16 +250,26 @@ export function parsePlacas(grid) {
     const row = grid[r] || [];
     for (let c = 0; c < Math.min(row.length, 6); c++) {
       const cellText = row[c]?.toString().trim().toUpperCase() || "";
-      if (cellText === "PLACAS" || cellText === "PLACA" || cellText.startsWith("PLACA")) {
+      if (cellText === "PLACAS" || cellText === "PLACA" || cellText.startsWith("PLACA") || cellText.includes("VEHICULOS (") || cellText.includes("VEHÍCULOS (")) {
         for (let vc = c + 1; vc < row.length; vc++) {
           if (row[vc] !== undefined && row[vc] !== null) {
             const v = row[vc].toString().trim();
             if (v && !["nan", "placas", "placa", "none", "", "-"].includes(v.toLowerCase())) {
-              const splitPlacas = v.split(/[,;/]+/).map(p => p.trim().toUpperCase()).filter(Boolean);
-              placas.push(...splitPlacas);
+              const matches = v.match(/[A-Za-z]{3}-?\d{3,4}/g);
+              if (matches) {
+                placas.push(...matches.map(p => p.toUpperCase()));
+              } else {
+                const splitPlacas = v.split(/[,;/()]+/).map(p => p.trim().toUpperCase()).filter(p => /^[A-Z]{3}-?\d{3,4}$/.test(p));
+                placas.push(...splitPlacas);
+              }
             }
           }
         }
+      }
+      // Also check if the cell itself has plate expressions e.g. "(TEI1773/TEI1814/TEI1761)"
+      const cellMatches = cellText.match(/[A-Z]{3}-?\d{3,4}/g);
+      if (cellMatches && cellMatches.length > 0 && !cellText.includes("MANT")) {
+        placas.push(...cellMatches.map(p => p.toUpperCase()));
       }
     }
   }

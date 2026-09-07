@@ -30,6 +30,7 @@ import {
   detectarCorrectivosExcel, 
   parsePlacas, 
   parseMantenimientosObservacion,
+  detectarModeloEnGrid,
   calcularPlanMantenimiento 
 } from './utils/excelParser';
 import { generarProformaDocx } from './utils/docxGenerator';
@@ -179,8 +180,19 @@ export default function App() {
         const correoVal = buscarValor(grid, ["Correo electrónico", "Correo electronico", "Correo", "Email", "E-mail"]) || "";
         const plazoVal = buscarValor(grid, ["Plazo de ejecución", "Plazo de ejecucion", "Plazo"]) || "365";
         const vigenciaVal = buscarValor(grid, ["Vigencia de la oferta", "Vigencia"]) || "90 días";
-        const modeloVal = buscarValor(grid, ["Modelo de vehículo", "Modelo de vehiculo", "Modelo del vehículo", "Modelo del vehiculo", "Modelo", "Vehículo", "Vehiculo", "Tipo de Vehículo", "Tipo de vehiculo"]) || "";
-        const cantidadVal = buscarValor(grid, ["Cantidad de vehículos", "Cantidad de vehiculos", "Cantidad", "N° vehículos", "N° vehiculos", "No. Vehículos"]) || "1";
+        const modeloVal = buscarValor(grid, [
+          "Modelo de vehículo", "Modelo de vehiculo", "Modelo del vehículo", "Modelo del vehiculo", 
+          "Modelo", "Vehículo", "Vehiculo", "Vehículos", "Vehiculos", "Tipo de Vehículo", "Tipo de vehiculo", 
+          "Flota", "Camioneta", "Jeep", "Automotor", "Unidad", "Descripción", "Descripcion", "Detalle", 
+          "Bien / Servicio", "Producto", "Item"
+        ]) || "";
+        const gridModel = detectarModeloEnGrid(grid);
+        const finalModeloVal = modeloVal || gridModel || "";
+
+        const cantidadVal = buscarValor(grid, [
+          "Cantidad de vehículos", "Cantidad de vehiculos", "Cantidad", "N° vehículos", "N° vehiculos", 
+          "No. Vehículos", "No. Vehiculos", "Cant.", "Cant", "Total Vehículos", "Unidades"
+        ]) || "1";
         const observacionVal = buscarValor(grid, ["Observación", "Observacion", "Notas", "Observaciones"]) || "";
         const objetoVal = buscarValor(grid, ["OBJETO DEL CONTRATO", "Objeto del contrato", "Objeto de la contratación", "Objeto"]) || "Plan de mantenimiento preventivo y correctivo de vehículos";
         
@@ -222,14 +234,19 @@ export default function App() {
           setModoCalculo('rango');
         }
 
-        // Match with Supabase / Fallback Model & Plan (considering both modeloVal and observacionVal)
-        const { plan, modelo } = await buscarPlanPorModelo(modeloVal, observacionVal);
+        // Match with Supabase / Fallback Model & Plan (considering model text, grid scan, and observation)
+        const { plan, modelo } = await buscarPlanPorModelo(finalModeloVal, observacionVal);
         if (plan && modelo) {
           setSelectedModeloId(modelo.id);
           setSelectedPlanId(plan.id);
         }
 
-        const effectiveCantidad = (parsedMant && parsedMant.length > 0) ? parsedMant.length : (parseInt(cantidadVal, 10) || 1);
+        let parsedCount = parseInt(cantidadVal, 10);
+        if (isNaN(parsedCount) || parsedCount <= 0) parsedCount = 1;
+        if (placasVal && placasVal.length > parsedCount) {
+          parsedCount = placasVal.length;
+        }
+        const effectiveCantidad = (parsedMant && parsedMant.length > 0) ? parsedMant.length : parsedCount;
 
         setForm(prev => ({
           ...prev,
@@ -241,7 +258,7 @@ export default function App() {
           correo: correoVal || prev.correo,
           plazoEjecucion: plazoVal || prev.plazoEjecucion,
           vigenciaOferta: vigenciaVal || prev.vigenciaOferta,
-          modeloVehiculo: modeloVal || modelo?.nombre_completo || prev.modeloVehiculo,
+          modeloVehiculo: finalModeloVal || modelo?.nombre_completo || prev.modeloVehiculo,
           cantidadVehiculos: effectiveCantidad,
           observacion: observacionVal || prev.observacion,
           objetoContrato: objetoVal || prev.objetoContrato,

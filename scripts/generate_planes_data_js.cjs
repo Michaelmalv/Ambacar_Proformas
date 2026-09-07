@@ -202,7 +202,7 @@ for (const def of planDefinitions) {
   let kmRowIndex = null;
   let kmCols = [];
 
-  for (let r = 0; r < Math.min(10, grid.length); r++) {
+  for (let r = 0; r < Math.min(15, grid.length); r++) {
     const row = grid[r] || [];
     const foundKms = [];
     for (let c = 1; c < row.length; c++) {
@@ -220,14 +220,36 @@ for (const def of planDefinitions) {
 
   if (!kmCols.length) continue;
 
+  // Find boundary of Block 1 (up to next PLAN DE MANTENIMIENTO or lower draft blocks)
+  let endBlock = grid.length;
+  for (let r = kmRowIndex + 5; r < grid.length; r++) {
+    const c0 = String(grid[r]?.[0] || '').trim().toUpperCase();
+    if (c0.includes('PLAN DE MANTENIMIENTO') || c0.includes('WINGLE 7 PLAN') || c0 === 'REP') {
+      endBlock = r - 1;
+      break;
+    }
+  }
+
   let filaRep = null, filaLub = null, filaMo = null, filaTot = null;
 
-  for (let r = 0; r < grid.length; r++) {
+  for (let r = kmRowIndex; r < endBlock; r++) {
     const c0 = String(grid[r]?.[0] || '').trim().toUpperCase();
-    if (c0.includes('TOTAL LUBRICANTE') || c0 === 'TOTAL LUBRICANTES') { filaLub = r; continue; }
-    if (c0.includes('TOTAL REPUESTO') || c0 === 'TOTAL REPUESTOS') { filaRep = r; continue; }
-    if (c0.includes('TOTAL MANO DE OBRA') || c0.includes('TOTAL M/O')) { filaMo = r; continue; }
-    if (c0.includes('TOTAL COSTO') || c0.includes('TOTAL MANTENIMIENTO') || c0 === 'TOTAL') { filaTot = r; continue; }
+    if (filaLub === null && (c0 === 'TOTAL LUBRICANTES' || c0 === 'TOTAL LUBRICANTE' || c0.includes('TOTAL LUBRICANTE'))) { 
+      filaLub = r; 
+      continue; 
+    }
+    if (filaRep === null && (c0 === 'TOTAL REPUESTOS' || c0 === 'TOTAL REPUESTO' || c0.includes('TOTAL REPUESTO'))) { 
+      filaRep = r; 
+      continue; 
+    }
+    if (filaMo === null && (c0 === 'TOTAL M/O' || c0 === 'TOTAL MANO DE OBRA' || c0.includes('TOTAL M/O') || c0.includes('TOTAL MANO DE OBRA'))) { 
+      filaMo = r; 
+      continue; 
+    }
+    if (filaTot === null && (c0 === 'TOTAL MANTENIMIENTO X KM' || c0.includes('TOTAL COSTO') || c0.includes('TOTAL MANTENIMIENTO'))) { 
+      filaTot = r; 
+      continue; 
+    }
   }
 
   const costosPorKm = {};

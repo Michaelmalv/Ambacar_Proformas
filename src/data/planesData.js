@@ -1512,94 +1512,94 @@ export const PLANES_MANTENIMIENTO_DATA = [
     "costosPorKm": {
       "5000": {
         "km": 5000,
-        "total_repuestos": 4.93,
-        "total_lubricantes": 34.17,
+        "total_repuestos": 92.1,
+        "total_lubricantes": 98.63,
         "total_mano_obra": 13.2,
-        "total_km": 54.28
+        "total_km": 203.92999999999998
       },
       "10000": {
         "km": 10000,
-        "total_repuestos": 63.23,
-        "total_lubricantes": 46.95,
-        "total_mano_obra": 169.95,
-        "total_km": 305.87
+        "total_repuestos": 108.04,
+        "total_lubricantes": 56.6,
+        "total_mano_obra": 143.55,
+        "total_km": 308.19000000000005
       },
       "20000": {
         "km": 20000,
-        "total_repuestos": 104.91,
-        "total_lubricantes": 58.25,
-        "total_mano_obra": 176.55,
-        "total_km": 366.44
+        "total_repuestos": 307.52,
+        "total_lubricantes": 67.9,
+        "total_mano_obra": 166.65,
+        "total_km": 542.0699999999999
       },
       "30000": {
         "km": 30000,
-        "total_repuestos": 63.23,
-        "total_lubricantes": 46.95,
-        "total_mano_obra": 188.1,
-        "total_km": 326.66
+        "total_repuestos": 177.21,
+        "total_lubricantes": 56.6,
+        "total_mano_obra": 138.6,
+        "total_km": 372.40999999999997
       },
       "40000": {
         "km": 40000,
-        "total_repuestos": 104.91,
-        "total_lubricantes": 58.25,
-        "total_mano_obra": 191.4,
-        "total_km": 383.27
+        "total_repuestos": 307.52,
+        "total_lubricantes": 67.9,
+        "total_mano_obra": 181.5,
+        "total_km": 556.92
       },
       "50000": {
         "km": 50000,
-        "total_repuestos": 63.23,
-        "total_lubricantes": 92.9,
-        "total_mano_obra": 184.8,
-        "total_km": 368.65
+        "total_repuestos": 231.81,
+        "total_lubricantes": 129.14,
+        "total_mano_obra": 158.4,
+        "total_km": 519.35
       },
       "60000": {
         "km": 60000,
-        "total_repuestos": 104.91,
-        "total_lubricantes": 58.25,
-        "total_mano_obra": 188.1,
-        "total_km": 379.64
+        "total_repuestos": 302.12,
+        "total_lubricantes": 67.9,
+        "total_mano_obra": 181.5,
+        "total_km": 551.52
       },
       "70000": {
         "km": 70000,
-        "total_repuestos": 63.23,
-        "total_lubricantes": 46.95,
-        "total_mano_obra": 165,
-        "total_km": 299.93
+        "total_repuestos": 177.21,
+        "total_lubricantes": 56.6,
+        "total_mano_obra": 138.6,
+        "total_km": 372.40999999999997
       },
       "80000": {
         "km": 80000,
-        "total_repuestos": 104.91,
-        "total_lubricantes": 58.25,
-        "total_mano_obra": 188.1,
-        "total_km": 379.64
+        "total_repuestos": 307.52,
+        "total_lubricantes": 67.9,
+        "total_mano_obra": 178.2,
+        "total_km": 553.6199999999999
       },
       "90000": {
         "km": 90000,
-        "total_repuestos": 63.23,
-        "total_lubricantes": 46.95,
-        "total_mano_obra": 191.4,
-        "total_km": 330.29
+        "total_repuestos": 177.21,
+        "total_lubricantes": 56.6,
+        "total_mano_obra": 165,
+        "total_km": 398.81
       },
       "100000": {
         "km": 100000,
-        "total_repuestos": 104.91,
-        "total_lubricantes": 104.2,
-        "total_mano_obra": 194.7,
-        "total_km": 433.18
+        "total_repuestos": 362.12,
+        "total_lubricantes": 140.44,
+        "total_mano_obra": 188.1,
+        "total_km": 690.66
       },
       "110000": {
         "km": 110000,
-        "total_repuestos": 63.23,
-        "total_lubricantes": 46.95,
-        "total_mano_obra": 169.95,
-        "total_km": 305.87
+        "total_repuestos": 108.04,
+        "total_lubricantes": 56.6,
+        "total_mano_obra": 143.55,
+        "total_km": 308.19000000000005
       },
       "120000": {
         "km": 120000,
-        "total_repuestos": 104.91,
-        "total_lubricantes": 58.25,
-        "total_mano_obra": 188.1,
-        "total_km": 379.64
+        "total_repuestos": 302.12,
+        "total_lubricantes": 67.9,
+        "total_mano_obra": 181.5,
+        "total_km": 551.52
       }
     }
   },
@@ -1799,171 +1799,171 @@ export const PLANES_MANTENIMIENTO_DATA = [
     "costosPorKm": {
       "5000": {
         "km": 5000,
-        "total_repuestos": 52.1,
-        "total_lubricantes": 51.18,
-        "total_mano_obra": 20.79,
-        "total_km": 124.07
+        "total_repuestos": 21.9,
+        "total_lubricantes": 97.8,
+        "total_mano_obra": 120,
+        "total_km": 239.7
       },
       "10000": {
         "km": 10000,
-        "total_repuestos": 94.34,
-        "total_lubricantes": 63.96,
-        "total_mano_obra": 180.18,
-        "total_km": 338.48
+        "total_repuestos": 166.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 448.38
       },
       "15000": {
         "km": 15000,
-        "total_repuestos": 52.1,
-        "total_lubricantes": 51.18,
-        "total_mano_obra": 15.18,
-        "total_km": 118.46
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "20000": {
         "km": 20000,
-        "total_repuestos": 226.28,
-        "total_lubricantes": 86.67,
-        "total_mano_obra": 205.59,
-        "total_km": 518.54
+        "total_repuestos": 234.9,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 469.9,
+        "total_km": 796.88
       },
       "25000": {
         "km": 25000,
-        "total_repuestos": 52.1,
-        "total_lubricantes": 51.18,
-        "total_mano_obra": 15.18,
-        "total_km": 118.46
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "30000": {
         "km": 30000,
-        "total_repuestos": 170.43,
-        "total_lubricantes": 63.96,
-        "total_mano_obra": 199.98,
-        "total_km": 434.37
+        "total_repuestos": 166.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 448.38
       },
       "35000": {
         "km": 35000,
-        "total_repuestos": 52.1,
-        "total_lubricantes": 51.18,
-        "total_mano_obra": 15.18,
-        "total_km": 118.46
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "40000": {
         "km": 40000,
-        "total_repuestos": 623.8,
-        "total_lubricantes": 176.94,
-        "total_mano_obra": 349.14,
-        "total_km": 1149.88
+        "total_repuestos": 234.9,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 469.9,
+        "total_km": 796.88
       },
       "45000": {
         "km": 45000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "50000": {
         "km": 50000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 396.4,
+        "total_lubricantes": 660.25,
+        "total_mano_obra": 469.9,
+        "total_km": 1526.55
       },
       "55000": {
         "km": 55000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "60000": {
         "km": 60000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 251.9,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 509.9,
+        "total_km": 853.88
       },
       "65000": {
         "km": 65000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "70000": {
         "km": 70000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 166.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 448.38
       },
       "75000": {
         "km": 75000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "80000": {
         "km": 80000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 234.9,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 469.9,
+        "total_km": 796.88
       },
       "85000": {
         "km": 85000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "90000": {
         "km": 90000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 166.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 448.38
       },
       "95000": {
         "km": 95000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "100000": {
         "km": 100000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 464.9,
+        "total_lubricantes": 666.96,
+        "total_mano_obra": 709.9,
+        "total_km": 1841.76
       },
       "105000": {
         "km": 105000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "110000": {
         "km": 110000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 166.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 448.38
       },
       "115000": {
         "km": 115000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "120000": {
         "km": 120000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 251.9,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 509.9,
+        "total_km": 853.88
       }
     }
   },
@@ -1981,171 +1981,171 @@ export const PLANES_MANTENIMIENTO_DATA = [
     "costosPorKm": {
       "5000": {
         "km": 5000,
-        "total_repuestos": 52.1,
-        "total_lubricantes": 51.18,
-        "total_mano_obra": 20.79,
-        "total_km": 124.07
+        "total_repuestos": 21.9,
+        "total_lubricantes": 97.8,
+        "total_mano_obra": 120,
+        "total_km": 239.7
       },
       "10000": {
         "km": 10000,
-        "total_repuestos": 94.34,
-        "total_lubricantes": 63.96,
-        "total_mano_obra": 180.18,
-        "total_km": 338.48
+        "total_repuestos": 276.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 558.38
       },
       "15000": {
         "km": 15000,
-        "total_repuestos": 52.1,
-        "total_lubricantes": 51.18,
-        "total_mano_obra": 15.18,
-        "total_km": 118.46
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "20000": {
         "km": 20000,
-        "total_repuestos": 226.28,
-        "total_lubricantes": 86.67,
-        "total_mano_obra": 205.59,
-        "total_km": 518.54
+        "total_repuestos": 386.4,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 469.9,
+        "total_km": 948.38
       },
       "25000": {
         "km": 25000,
-        "total_repuestos": 52.1,
-        "total_lubricantes": 51.18,
-        "total_mano_obra": 15.18,
-        "total_km": 118.46
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "30000": {
         "km": 30000,
-        "total_repuestos": 170.43,
-        "total_lubricantes": 63.96,
-        "total_mano_obra": 199.98,
-        "total_km": 434.37
+        "total_repuestos": 276.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 558.38
       },
       "35000": {
         "km": 35000,
-        "total_repuestos": 52.1,
-        "total_lubricantes": 51.18,
-        "total_mano_obra": 15.18,
-        "total_km": 118.46
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "40000": {
         "km": 40000,
-        "total_repuestos": 623.8,
-        "total_lubricantes": 176.94,
-        "total_mano_obra": 349.14,
-        "total_km": 1149.88
+        "total_repuestos": 386.4,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 469.9,
+        "total_km": 948.38
       },
       "45000": {
         "km": 45000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "50000": {
         "km": 50000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 506.4,
+        "total_lubricantes": 660.25,
+        "total_mano_obra": 469.9,
+        "total_km": 1636.55
       },
       "55000": {
         "km": 55000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "60000": {
         "km": 60000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 403.4,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 509.9,
+        "total_km": 1005.38
       },
       "65000": {
         "km": 65000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "70000": {
         "km": 70000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 276.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 558.38
       },
       "75000": {
         "km": 75000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "80000": {
         "km": 80000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 386.4,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 469.9,
+        "total_km": 948.38
       },
       "85000": {
         "km": 85000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "90000": {
         "km": 90000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 276.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 558.38
       },
       "95000": {
         "km": 95000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "100000": {
         "km": 100000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 616.4,
+        "total_lubricantes": 666.96,
+        "total_mano_obra": 709.9,
+        "total_km": 1993.26
       },
       "105000": {
         "km": 105000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "110000": {
         "km": 110000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 276.4,
+        "total_lubricantes": 72.08,
+        "total_mano_obra": 209.9,
+        "total_km": 558.38
       },
       "115000": {
         "km": 115000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 21.9,
+        "total_lubricantes": 49.8,
+        "total_mano_obra": 30,
+        "total_km": 101.7
       },
       "120000": {
         "km": 120000,
-        "total_repuestos": 0,
-        "total_lubricantes": 0,
-        "total_mano_obra": 0,
-        "total_km": 0
+        "total_repuestos": 403.4,
+        "total_lubricantes": 92.08,
+        "total_mano_obra": 509.9,
+        "total_km": 1005.38
       }
     }
   },

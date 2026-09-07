@@ -71,29 +71,36 @@ export async function buscarPlanPorModelo(modeloTexto = "", observacionTexto = "
     const mMotor = (m.motor || '').toUpperCase();
 
     // Exact full match
-    if (normalized === mName || normalized === mModelo) score += 100;
-    if (mName.includes(normalized) && normalized.length > 3) score += 40;
-    if (normalized.includes(mName)) score += 40;
+    if (normalized === mName || normalized === mModelo) score += 200;
+    if (mName.includes(normalized) && normalized.length > 3) score += 60;
+    if (normalized.includes(mName)) score += 60;
 
-    // Model families
-    if (mModelo.includes("WINGLE 7") && (combined.includes("W7") || combined.includes("WINGLE 7") || combined.includes("WINGLE7") || (combined.includes("WINGLE") && !combined.includes("2.8")))) score += 30;
-    if (mModelo.includes("POER") && combined.includes("POER")) score += 30;
-    if (mModelo.includes("TANK 300") && (combined.includes("TANK 300") || combined.includes("TANK300") || (combined.includes("TANK") && combined.includes("300")))) score += 40;
-    if (mModelo.includes("TANK 500") && (combined.includes("TANK 500") || combined.includes("TANK500") || (combined.includes("TANK") && combined.includes("500")))) score += 40;
-    if (mModelo.includes("KYC") && (combined.includes("KYC") || combined.includes("F3"))) score += 30;
-    if (mModelo.includes("WINGLE 2.8") && (combined.includes("2.8") || combined.includes("2,8"))) score += 40;
+    // Specific Model families
+    const hasTank300 = combined.includes("TANK 300") || combined.includes("TANK300") || (combined.includes("TANK") && combined.includes("300"));
+    const hasTank500 = combined.includes("TANK 500") || combined.includes("TANK500") || (combined.includes("TANK") && combined.includes("500"));
+    const hasWingle28 = combined.includes("2.8") || combined.includes("2,8");
+    const hasWingle7 = combined.includes("W7") || combined.includes("WINGLE 7") || combined.includes("WINGLE7") || (combined.includes("WINGLE") && !hasWingle28);
+    const hasPoer = combined.includes("POER");
+    const hasKyc = combined.includes("KYC") || combined.includes("F3");
 
-    // Traction matching (4x4 vs 4x2) - Highest priority distinction
+    if (mModelo.includes("TANK 300") && hasTank300) score += 180;
+    if (mModelo.includes("TANK 500") && hasTank500) score += 180;
+    if (mModelo.includes("WINGLE 2.8") && hasWingle28) score += 180;
+    if (mModelo.includes("WINGLE 7") && hasWingle7) score += 120;
+    if (mModelo.includes("POER") && hasPoer) score += 120;
+    if (mModelo.includes("KYC") && hasKyc) score += 150;
+
+    // Traction matching (4x4 vs 4x2)
     const has4x2 = combined.includes("4X2") || combined.includes("4 X 2") || combined.includes("2WD") || combined.includes("SIMPLE");
     const has4x4 = combined.includes("4X4") || combined.includes("4 X 4") || combined.includes("4WD") || combined.includes("DOBLE TRACCION");
 
     if (has4x2 && (mTraccion.includes("4X2") || mName.includes("4X2"))) score += 60;
     if (has4x4 && (mTraccion.includes("4X4") || mName.includes("4X4"))) score += 60;
 
-    // Fuel & engine matching
-    if (combined.includes("DIESEL") && (mMotor.includes("DIESEL") || mName.includes("DIESEL"))) score += 10;
-    if (combined.includes("GASOLINA") && (mMotor.includes("GASOLINA") || mName.includes("GASOLINA"))) score += 10;
-    if ((combined.includes("POLIC") || combined.includes("PATRULL")) && mName.includes("POLIC")) score += 25;
+    // Special vehicle variants
+    if ((combined.includes("POLIC") || combined.includes("PATRULL")) && mName.includes("POLIC")) score += 80;
+    if (combined.includes("GASOLINA") && (mMotor.includes("GASOLINA") || mName.includes("GASOLINA"))) score += 50;
+    if (combined.includes("DIESEL") && (mMotor.includes("DIESEL") || mName.includes("DIESEL"))) score += 20;
 
     if (score > highestScore && score > 0) {
       highestScore = score;
